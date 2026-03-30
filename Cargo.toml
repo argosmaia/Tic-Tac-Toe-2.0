@@ -1,6 +1,6 @@
 [package]
 name = "velha2"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["HappyCode Productions"]
 description = "Ultimate Tic-Tac-Toe — Velha 2.0"
@@ -21,14 +21,17 @@ egui = "0.27"
 # SQLite embutido — sem dependência externa em runtime
 rusqlite = { version = "0.31", features = ["bundled"] }
 
-# iroh P2P — será integrado em iteração futura (0.18 incompatível com Rust 1.94)
-# iroh = "0.29"
+# iroh P2P: hole punching via DERP servers da n0 — funciona entre redes diferentes
+iroh = "0.29"
+
+# Tratamento de erros de rede
+anyhow = "1"
 
 # Serialização
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# Runtime async necessário para iroh
+# Runtime async para iroh (network manager roda em task tokio separada)
 tokio = { version = "1", features = ["full"] }
 
 # Geração de números aleatórios para o nível Noob da IA

@@ -53,7 +53,12 @@ impl Default for LobbyState {
 }
 
 /// Renderiza a tela de lobby.
-pub fn render_lobby(ui: &mut Ui, estado: &mut LobbyState) -> LobbyAction {
+pub fn render_lobby(
+    ui: &mut Ui,
+    estado: &mut LobbyState,
+    ticket_p2p: Option<&str>,
+    status_rede: Option<&str>,
+) -> LobbyAction {
     let mut ação = LobbyAction::Nenhuma;
 
     ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
@@ -159,16 +164,53 @@ pub fn render_lobby(ui: &mut Ui, estado: &mut LobbyState) -> LobbyAction {
             GameMode::P2P => {
                 campo_nome(ui, "Seu nome", &mut estado.config.nome_x, cores::JOGADOR_X);
                 ui.add_space(8.0);
-                ui.label(
-                    egui::RichText::new("Session ID (deixe vazio para hospedar)")
-                        .size(tipografia::CORPO)
-                        .color(cores::TEXTO_SECUNDARIO),
-                );
-                ui.add(
-                    egui::TextEdit::singleline(&mut estado.config.session_id_entrada)
-                        .hint_text("velha2-xxxxxxxxxxxx")
-                        .desired_width(280.0),
-                );
+
+                // Exibe ticket se já foi gerado (modo host aguardando peer)
+                if let Some(ticket) = ticket_p2p {
+                    ui.label(
+                        egui::RichText::new("🎫 Ticket — envie ao seu amigo:")
+                            .size(tipografia::CORPO)
+                            .color(cores::TEXTO_SECUNDARIO),
+                    );
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut ticket.to_owned())
+                                .desired_width(240.0)
+                                .interactive(false),
+                        );
+                        if ui.button("📋 Copiar").clicked() {
+                            ui.ctx().copy_text(ticket.to_owned());
+                        }
+                    });
+                } else {
+                    ui.label(
+                        egui::RichText::new("Ticket do host (deixe vazio para hospedar)")
+                            .size(tipografia::CORPO)
+                            .color(cores::TEXTO_SECUNDARIO),
+                    );
+                    ui.add(
+                        egui::TextEdit::singleline(&mut estado.config.session_id_entrada)
+                            .hint_text("Cole o ticket do seu amigo aqui...")
+                            .desired_width(280.0),
+                    );
+                }
+
+                // Status de rede
+                if let Some(status) = status_rede {
+                    ui.add_space(8.0);
+                    let cor_status = if status.starts_with('❌') {
+                        cores::JOGADOR_X
+                    } else if status.starts_with('⚠') {
+                        cores::ACENTO_DOURADO
+                    } else {
+                        cores::JOGADOR_O
+                    };
+                    ui.label(
+                        egui::RichText::new(status)
+                            .size(tipografia::CORPO)
+                            .color(cor_status),
+                    );
+                }
             }
         }
 

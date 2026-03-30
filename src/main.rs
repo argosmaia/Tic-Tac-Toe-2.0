@@ -14,6 +14,14 @@ use eframe::NativeOptions;
 use egui::ViewportBuilder;
 
 fn main() -> eframe::Result<()> {
+    // Runtime tokio necessário para as tasks de rede iroh.
+    // O eframe roda na thread principal; as tasks de rede ficam em threads tokio separadas.
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Falha ao criar runtime tokio");
+    let _guard = rt.enter();
+
     // Configura janela nativa
     let opções = NativeOptions {
         viewport: ViewportBuilder::default()

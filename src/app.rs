@@ -13,6 +13,9 @@ use egui::Context;
 
 use crate::ai::{best_move, AiLevel};
 use crate::game::{rules, Board, GameMode, GameResult, Player};
+use crate::network::{
+    iniciar_network_manager, NetworkCommand, NetworkEvent, NetworkHandle,
+};
 use crate::storage::Database;
 use crate::ui::screens::{
     game_screen::{GameScreenAction, Placar},
@@ -40,7 +43,8 @@ struct SessaoJogo {
     config: LobbyConfig,
     placar: Placar,
     inicio: Instant,
-    cpu_turno: bool, // true quando a CPU deve jogar neste frame
+    cpu_turno: bool,      // true quando a CPU deve jogar neste frame
+    aguardando_peer: bool, // true quando é turno do peer P2P (bloqueia input local)
 }
 
 /// Estado global da aplicação.
@@ -50,6 +54,12 @@ pub struct AppState {
     sessao: Option<SessaoJogo>,
     db: Option<Database>,
     historico_cache: Vec<crate::storage::MatchRecord>,
+    /// Handle de rede P2P, presente apenas durante uma sessão P2P.
+    network: Option<NetworkHandle>,
+    /// Ticket P2P gerado pelo host, exibido no lobby para compartilhamento.
+    pub ticket_p2p: Option<String>,
+    /// Mensagem de status de rede ("Conectando...", "Erro: ...", etc.).
+    pub status_rede: Option<String>,
 }
 
 impl AppState {
@@ -86,6 +96,9 @@ impl AppState {
             sessao: None,
             db,
             historico_cache,
+            network: None,
+            ticket_p2p: None,
+            status_rede: None,
         }
     }
 
@@ -104,19 +117,86 @@ impl AppState {
 
     /// Inicia uma nova sessão de jogo com a configuração do lobby.
     fn iniciar_jogo(&mut self, config: LobbyConfig) {
-        let cpu_joga_primeiro = config.modo == GameMode::VsCpu
-            && Player::X == Player::O; // CPU sempre joga como O → nunca é o primeiro turno dela
-
         self.sessao = Some(SessaoJogo {
             board: Board::new(),
             config,
             placar: Placar::default(),
             inicio: Instant::now(),
             cpu_turno: false,
+            aguardando_peer: false,
         });
-
         self.tela_atual = Tela::Jogo;
-        let _ = cpu_joga_primeiro;
+    }
+
+    /// Inicia uma sessão P2P como host.
+    fn hospedar_p2p(&mut self, nosso_nome: String) {
+        let mut handle = iniciar_network_manager();
+        let _ = handle
+            .tx_cmd
+            .try_send(NetworkCommand::Hospedar { nosso_nome });
+        self.network = Some(handle);
+        self.ticket_p2p = None;
+        self.status_rede = Some("Aguardando ticket iroh...".to_owned());
+    }
+
+    /// Conecta a uma sessão P2P existente usando o ticket do host.
+    fn conectar_p2p(&mut self, ticket: String, nosso_nome: String) {
+        let mut handle = iniciar_network_manager();
+        let _ = handle.tx_cmd.try_send(NetworkCommand::Conectar {
+            ticket_str: ticket,
+            nosso_nome,
+        });
+        self.network = Some(handle);
+        self.status_rede = Some("Conectando ao host...".to_owned());
+    }
+
+    /// Drena os eventos de rede chegando do manager e atualiza o estado da UI.
+    fn processar_eventos_rede(&mut self) {
+        // Precisamos de mut borrow separado para o network e o resto do estado.
+        let eventos: Vec<NetworkEvent> = self
+            .network
+            .as_mut()
+            .map(|h| std::iter::from_fn(|| h.rx_evt.try_recv().ok()).collect())
+            .unwrap_or_default();
+
+        for evento in eventos {
+            match evento {
+                NetworkEvent::HostPronto { ticket } => {
+                    self.ticket_p2p = Some(ticket);
+                    self.status_rede = Some("Ticket pronto! Compartilhe com seu amigo.".to_owned());
+                }
+                NetworkEvent::PeerConectado { nome_peer } => {
+                    self.status_rede = None;
+                    // Inicia a sessao com config P2P real
+                    let config = self.lobby_state.config.clone();
+                    let config_com_peer = LobbyConfig {
+                        nome_o: nome_peer,
+                        ..config
+                    };
+                    self.iniciar_jogo(config_com_peer);
+                    // O host joga com X (primeiro turno), guest aguarda
+                    if let Some(sessao) = &mut self.sessao {
+                        // guest: is_host = false → aguarda o host jogar
+                        sessao.aguardando_peer = self.ticket_p2p.is_none();
+                    }
+                }
+                NetworkEvent::JogadaRecebida { quad, cell } => {
+                    self.processar_jogada(quad, cell);
+                    if let Some(sessao) = &mut self.sessao {
+                        sessao.aguardando_peer = false;
+                    }
+                }
+                NetworkEvent::PeerDesconectado => {
+                    self.status_rede = Some("⚠️ Amigo desconectou.".to_owned());
+                    if let Some(sessao) = &mut self.sessao {
+                        sessao.aguardando_peer = false;
+                    }
+                }
+                NetworkEvent::Erro { mensagem } => {
+                    self.status_rede = Some(format!("❌ {}", mensagem));
+                }
+            }
+        }
     }
 
     /// Processa uma jogada humana ou da CPU sobre a sessão ativa.
@@ -208,6 +288,9 @@ impl AppState {
 
 impl eframe::App for AppState {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        // Drena eventos de rede (non-blocking)
+        self.processar_eventos_rede();
+
         // Executa turno da CPU antes de renderizar (evita frame em branco)
         self.tick_cpu();
 
@@ -232,17 +315,45 @@ impl eframe::App for AppState {
 
                     Tela::Lobby => {
                         let ação =
-                            crate::ui::screens::lobby::render_lobby(ui, &mut self.lobby_state);
+                            crate::ui::screens::lobby::render_lobby(
+                                ui,
+                                &mut self.lobby_state,
+                                self.ticket_p2p.as_deref(),
+                                self.status_rede.as_deref(),
+                            );
                         match ação {
-                            LobbyAction::IniciarPartida(config) => self.iniciar_jogo(config),
-                            LobbyAction::Voltar => self.tela_atual = Tela::MenuPrincipal,
+                            LobbyAction::IniciarPartida(config) => match config.modo {
+                                GameMode::P2P => {
+                                    if self.lobby_state.config.session_id_entrada.trim().is_empty() {
+                                        // Hospedar
+                                        self.hospedar_p2p(config.nome_x.clone());
+                                    } else {
+                                        // Conectar como guest
+                                        let ticket = config.session_id_entrada.trim().to_owned();
+                                        self.conectar_p2p(ticket, config.nome_x.clone());
+                                    }
+                                }
+                                _ => self.iniciar_jogo(config),
+                            },
+                            LobbyAction::Voltar => {
+                                // Cancela qualquer processo de rede em andamento
+                                if let Some(h) = &self.network {
+                                    let _ = h.tx_cmd.try_send(NetworkCommand::Desconectar);
+                                }
+                                self.network = None;
+                                self.ticket_p2p = None;
+                                self.status_rede = None;
+                                self.tela_atual = Tela::MenuPrincipal;
+                            }
                             LobbyAction::Nenhuma => {}
                         }
                     }
 
                     Tela::Jogo => {
                         if let Some(sessao) = &self.sessao {
-                            let interativo = !sessao.cpu_turno && !sessao.board.is_over();
+                            let interativo = !sessao.cpu_turno
+                                && !sessao.aguardando_peer
+                                && !sessao.board.is_over();
                             let nome_x = sessao.config.nome_x.clone();
                             let nome_o = match sessao.config.modo {
                                 GameMode::VsCpu => {
@@ -271,16 +382,38 @@ impl eframe::App for AppState {
                             match ação {
                                 GameScreenAction::JogadaRealizada { quad, cell } => {
                                     self.processar_jogada(quad, cell);
-                                    ctx.request_repaint(); // Garante repaint para CPU jogar
+                                    // Em modo P2P, envia a jogada para o peer
+                                    if let Some(h) = &self.network {
+                                        let _ = h.tx_cmd.try_send(NetworkCommand::EnviarJogada { quad, cell });
+                                    }
+                                    // Marca que agora aguardamos o peer responder
+                                    if let Some(sessao) = &mut self.sessao {
+                                        if sessao.config.modo == GameMode::P2P {
+                                            sessao.aguardando_peer = true;
+                                        }
+                                    }
+                                    ctx.request_repaint();
                                 }
                                 GameScreenAction::Desistir => {
+                                    // Notifica o peer que desistimos
+                                    if let Some(h) = &self.network {
+                                        let _ = h.tx_cmd.try_send(NetworkCommand::Desconectar);
+                                    }
+                                    self.network = None;
+                                    self.ticket_p2p = None;
+                                    self.status_rede = None;
                                     self.sessao = None;
                                     self.tela_atual = Tela::MenuPrincipal;
                                 }
                                 GameScreenAction::NovaPartida => {
                                     if let Some(sess) = &self.sessao {
                                         let config = sess.config.clone();
-                                        self.iniciar_jogo(config);
+                                        // P2P não suporta "nova partida" direto — volta ao lobby
+                                        if config.modo == GameMode::P2P {
+                                            self.tela_atual = Tela::Lobby;
+                                        } else {
+                                            self.iniciar_jogo(config);
+                                        }
                                     }
                                 }
                                 GameScreenAction::Nenhuma => {}
@@ -301,11 +434,16 @@ impl eframe::App for AppState {
                 }
             });
 
-        // Repaint contínuo quando CPU está pensando
-        if let Some(sess) = &self.sessao {
-            if sess.cpu_turno {
-                ctx.request_repaint();
-            }
+        // Repaint contínuo quando CPU ou rede estão ativos
+        let precisa_repaint = self
+            .sessao
+            .as_ref()
+            .map(|s| s.cpu_turno || s.aguardando_peer)
+            .unwrap_or(false)
+            || self.network.is_some();
+
+        if precisa_repaint {
+            ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
     }
 }

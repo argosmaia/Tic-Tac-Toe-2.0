@@ -263,7 +263,17 @@ cargo build --release
 |------|-----------|
 | **Local** | Dois jogadores no mesmo PC, alternando mouse |
 | **vs CPU** | Você contra a IA nos níveis Noob, Jogadora, Master ou Killer |
-| **P2P** | Em desenvolvimento 🚧 |
+| **P2P** | Online entre dois PCs em redes diferentes — via iroh (hole punching automático) ✅ |
+
+### Como jogar P2P (Maracanã ↔ São João de Meriti 🗺️)
+
+1. **Host:** Abre o jogo → *Nova Partida* → *P2P* → preenche seu nome → clica **Hospedar**
+2. **Host:** Um **ticket** aparece na tela (string longa). Manda pro amigo via WhatsApp/Telegram
+3. **Guest:** Abre o jogo → *Nova Partida* → *P2P* → preenche o nome → cola o ticket → clica **Conectar**
+4. A conexão é estabelecida via [iroh](https://iroh.computer/) com hole punching automático (sem precisar abrir porta no roteador)
+5. O host joga com ✕, o guest com ○
+
+> O ticket é gerado automaticamente a cada sessão — não precisa de IP, porta ou conta em lugar nenhum.
 
 ### Regras do Ultimate Tic-Tac-Toe
 
