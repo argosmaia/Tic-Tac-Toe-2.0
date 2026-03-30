@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Velha 2.0
+GenericName=Ultimate Tic-Tac-Toe
+Comment=Ultimate Tic-Tac-Toe — multiplayer local, vs CPU e P2P
+Exec=/usr/local/bin/velha2
+Icon=velha2
+Terminal=false
+Categories=Game;BoardGame;
+Keywords=tictactoe;velha;jogo;game;strategy;
+StartupWMClass=velha2
+StartupNotify=true
