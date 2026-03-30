@@ -76,7 +76,8 @@ velha2/
 │   │   ├── profile.rs       # CRUD de perfis
 │   │   └── history.rs       # Histórico de partidas
 │   │
-│   ├── network/             # Networking P2P (em desenvolvimento)
+│   ├── network/             # Networking P2P (via iroh)
+│   │   ├── manager.rs       # Gerenciador assíncrono (QUIC / DERP)
 │   │   ├── protocol.rs      # Protocolo de mensagens
 │   │   ├── session.rs       # Gerenciamento de sessão
 │   │   └── peer.rs          # Estado de conexão
@@ -304,6 +305,7 @@ O jogo salva o histórico de partidas automaticamente:
 | Linguagem | Rust 1.70+ |
 | UI | [egui](https://github.com/emilk/egui) + [eframe](https://github.com/emilk/egui/tree/master/crates/eframe) 0.27 |
 | Banco de dados | SQLite via [rusqlite](https://github.com/rusqlite/rusqlite) (bundled) |
+| Rede P2P | [iroh](https://iroh.computer/) 0.29 (QUIC + Hole Punching nativo automático) |
 | Fonte | [Garet](https://fontesk.com/garet-typeface/) — embutida no binário |
 | IA | Minimax com poda Alpha-Beta (Rust puro) |
 | Serialização | serde + serde_json |
