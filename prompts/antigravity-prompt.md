@@ -335,3 +335,12 @@ serde     = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio     = { version = "1", features = ["full"] }  # Runtime async para iroh
 ```
+
+---
+
+## Roadmap e Arquitetura Futura
+
+### Save-State & Crash Recovery
+Deve ser implementado um sistema de persistência de sessão ativa no SQLite (`storage/`) para lidar com fechamentos abruptos (quedas de energia, `SIGKILL`).
+- **Mecânica Sistêmica**: O estado completo do macro e micro tabuleiros deve ser salvo em tempo real de forma eficiente (O(1) no I/O, idealmente assíncrono ou fire-and-forget). Na reabertura, a interface deve investigar o banco de dados antes da Main Menu e engatilhar a opção de "Retomar Partida".
+- **Drop Condicional**: O save-state **nunca deverá ser restaurado para sessões P2P**, pois a recuperação de uma sessão de rede morta quebra a coesão do estado. Nesses casos, a sessão incompleta deve ser elegantemente expurgada e a tela limpa.

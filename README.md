@@ -173,6 +173,19 @@ bash install.sh --uninstall --local
 
 Após instalar, o jogo aparece no menu de aplicativos do GNOME, KDE ou qualquer DE compatível com `.desktop`.
 
+### Instalar via pacote pré-compilado (.tar.gz)
+
+Caso você não tenha o Rust instalado e não queira compilar a partir do código-fonte, basta baixar o nosso pacote pré-compilado (ex: `velha2-linux-v0.1.1.tar.gz`) que já vem com o binário pronto:
+
+```bash
+# Baixe e descompacte o arquivo
+tar -xf velha2-linux-v0.1.1.tar.gz
+cd velha2-linux-v0.1.1
+
+# Rode o script de instalação (ele pula a compilação automaticamente!)
+bash install.sh --local
+```
+
 ---
 
 ## 🍎 macOS
