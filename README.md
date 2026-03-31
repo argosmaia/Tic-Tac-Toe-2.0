@@ -175,10 +175,14 @@ Após instalar, o jogo aparece no menu de aplicativos do GNOME, KDE ou qualquer 
 
 ### Instalar via pacote pré-compilado (.tar.gz)
 
-Caso você não tenha o Rust instalado e não queira compilar a partir do código-fonte, basta baixar o nosso pacote pré-compilado (ex: `velha2-linux-v0.1.1.tar.gz`) que já vem com o binário pronto:
+Caso você não tenha o Rust instalado e não queira compilar a partir do código-fonte, basta baixar o nosso pacote pré-compilado que já vem com o binário pronto:
+
+👉 **[Download velha2-linux-v0.1.1.tar.gz (15MB)](https://github.com/argosmaia/Tic-Tac-Toe-2.0/raw/develop/velha2-linux-v0.1.1.tar.gz)**
+
+Abra o terminal na pasta onde você baixou o arquivo e rode:
 
 ```bash
-# Baixe e descompacte o arquivo
+# Descompacte o arquivo e entre na pasta
 tar -xf velha2-linux-v0.1.1.tar.gz
 cd velha2-linux-v0.1.1
 
@@ -346,6 +350,6 @@ MIT — faça o que quiser, só não culpe a gente se o Killer te destruir.
 
 *Feito com Rust 🦀, egui 🎨, e muito café ☕*
 
-*"A gente refatora depois." — Adam Sandler, provavelmente*
+*"A gente refatora depois." — Um fã de Adam Sandler, provavelmente*
 
 </div>
