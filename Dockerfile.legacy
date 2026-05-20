@@ -1,0 +1,27 @@
+FROM ubuntu:20.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    curl build-essential libxcb-render0-dev \
+    libxcb-shape0-dev libxcb-xfixes0-dev \
+    libxkbcommon-dev libssl-dev pkg-config \
+    libfontconfig1-dev tar
+
+# Instala o Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /app
+COPY . .
+
+# Compila o release usando as bibliotecas antigas do Ubuntu 20.04
+RUN cargo build --release
+
+# Organiza a arvore do pacote
+RUN mkdir -p velha2-linux-v0.1.1-legacy/assets \
+    && mkdir -p velha2-linux-v0.1.1-legacy/target/release \
+    && cp target/release/velha2 velha2-linux-v0.1.1-legacy/target/release/ \
+    && cp assets/velha2.png velha2-linux-v0.1.1-legacy/assets/ \
+    && cp install.sh velha2-linux-v0.1.1-legacy/ \
+    && cp velha2.desktop velha2-linux-v0.1.1-legacy/ \
+    && cp README.md velha2-linux-v0.1.1-legacy/ \
+    && tar -czvf velha2-linux-v0.1.1-legacy.tar.gz velha2-linux-v0.1.1-legacy

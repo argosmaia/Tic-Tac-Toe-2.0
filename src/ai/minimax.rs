@@ -105,21 +105,28 @@ pub fn best_move_at_depth(board: &Board, depth: u8) -> Option<(usize, usize)> {
     let mut melhor_jogada = jogadas[0];
     let mut melhor_score = if maximizing { i32::MIN } else { i32::MAX };
 
+    let mut alpha = i32::MIN;
+    let mut beta = i32::MAX;
+    let proxima_profundidade = depth.saturating_sub(1);
+
     for (quad, cell) in jogadas {
         let mut novo_tabuleiro = board.clone();
         novo_tabuleiro.make_move(quad, cell);
 
-        let score = minimax(&novo_tabuleiro, depth, i32::MIN, i32::MAX, !maximizing);
+        let score = minimax(&novo_tabuleiro, proxima_profundidade, alpha, beta, !maximizing);
 
-        let é_melhor = if maximizing {
-            score > melhor_score
+        if maximizing {
+            if score > melhor_score {
+                melhor_score = score;
+                melhor_jogada = (quad, cell);
+            }
+            alpha = alpha.max(melhor_score);
         } else {
-            score < melhor_score
-        };
-
-        if é_melhor {
-            melhor_score = score;
-            melhor_jogada = (quad, cell);
+            if score < melhor_score {
+                melhor_score = score;
+                melhor_jogada = (quad, cell);
+            }
+            beta = beta.min(melhor_score);
         }
     }
 

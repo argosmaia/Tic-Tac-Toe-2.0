@@ -4,6 +4,7 @@ use egui::Ui;
 
 use crate::ai::AiLevel;
 use crate::game::GameMode;
+use crate::storage::Profile;
 use crate::ui::theme::{cores, espacamentos, tipografia};
 
 /// Configuração completa de uma partida montada no lobby.
@@ -42,12 +43,15 @@ pub enum LobbyAction {
 /// Estado interno da tela de lobby.
 pub struct LobbyState {
     pub config: LobbyConfig,
+    /// Lista de perfis carregados do banco para seleção rápida.
+    pub perfis_disponiveis: Vec<Profile>,
 }
 
 impl Default for LobbyState {
     fn default() -> Self {
         Self {
             config: LobbyConfig::default(),
+            perfis_disponiveis: Vec::new(),
         }
     }
 }
@@ -112,12 +116,30 @@ pub fn render_lobby(
         // Campos de nome conforme o modo
         match estado.config.modo {
             GameMode::Local => {
-                campo_nome(ui, "Jogador X", &mut estado.config.nome_x, cores::JOGADOR_X);
+                campo_nome_com_perfis(
+                    ui,
+                    "Jogador X",
+                    &mut estado.config.nome_x,
+                    cores::JOGADOR_X,
+                    &estado.perfis_disponiveis,
+                );
                 ui.add_space(8.0);
-                campo_nome(ui, "Jogador O", &mut estado.config.nome_o, cores::JOGADOR_O);
+                campo_nome_com_perfis(
+                    ui,
+                    "Jogador O",
+                    &mut estado.config.nome_o,
+                    cores::JOGADOR_O,
+                    &estado.perfis_disponiveis,
+                );
             }
             GameMode::VsCpu => {
-                campo_nome(ui, "Seu nome", &mut estado.config.nome_x, cores::JOGADOR_X);
+                campo_nome_com_perfis(
+                    ui,
+                    "Seu nome",
+                    &mut estado.config.nome_x,
+                    cores::JOGADOR_X,
+                    &estado.perfis_disponiveis,
+                );
                 ui.add_space(8.0);
 
                 ui.label(
@@ -162,7 +184,13 @@ pub fn render_lobby(
                 });
             }
             GameMode::P2P => {
-                campo_nome(ui, "Seu nome", &mut estado.config.nome_x, cores::JOGADOR_X);
+                campo_nome_com_perfis(
+                    ui,
+                    "Seu nome",
+                    &mut estado.config.nome_x,
+                    cores::JOGADOR_X,
+                    &estado.perfis_disponiveis,
+                );
                 ui.add_space(8.0);
 
                 // Exibe ticket se já foi gerado (modo host aguardando peer)
@@ -254,11 +282,56 @@ pub fn render_lobby(
 }
 
 /// Renderiza um campo de entrada de nome com label colorida.
-fn campo_nome(ui: &mut Ui, label: &str, valor: &mut String, cor_label: egui::Color32) {
+///
+/// Se houver perfis disponíveis, exibe botões de seleção rápida abaixo do campo de texto.
+fn campo_nome_com_perfis(
+    ui: &mut Ui,
+    label: &str,
+    valor: &mut String,
+    cor_label: egui::Color32,
+    perfis: &[Profile],
+) {
     ui.label(
         egui::RichText::new(label)
             .size(tipografia::CORPO)
             .color(cor_label),
     );
     ui.add(egui::TextEdit::singleline(valor).desired_width(280.0));
+
+    // Seleção rápida por perfis salvos
+    if !perfis.is_empty() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                egui::RichText::new("Perfis: ")
+                    .size(tipografia::PEQUENO)
+                    .color(cores::TEXTO_MUDO),
+            );
+            for perfil in perfis {
+                let selecionado = *valor == perfil.name;
+                let cor_fundo = if selecionado {
+                    cor_label.linear_multiply(0.25)
+                } else {
+                    egui::Color32::TRANSPARENT
+                };
+                if ui
+                    .add(
+                        egui::Button::new(
+                            egui::RichText::new(&perfil.name)
+                                .size(tipografia::PEQUENO)
+                                .color(if selecionado { cor_label } else { cores::TEXTO_SECUNDARIO }),
+                        )
+                        .fill(cor_fundo)
+                        .stroke(egui::Stroke::new(
+                            if selecionado { 1.0 } else { 0.0 },
+                            cor_label,
+                        ))
+                        .rounding(espacamentos::RAIO_BORDA),
+                    )
+                    .clicked()
+                {
+                    *valor = perfil.name.clone();
+                }
+            }
+        });
+    }
 }

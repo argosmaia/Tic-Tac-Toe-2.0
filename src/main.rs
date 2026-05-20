@@ -4,6 +4,7 @@
 
 mod ai;
 mod app;
+mod error;
 mod game;
 mod network;
 mod storage;

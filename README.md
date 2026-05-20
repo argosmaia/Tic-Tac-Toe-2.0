@@ -1,4 +1,4 @@
-# 🎮 Velha 2.0 — Ultimate Tic-Tac-Toe
+# 🎮 Jogo da Velha 2.0 — Ultimate Tic-Tac-Toe
 
 <div align="center">
 

@@ -22,6 +22,7 @@ use crate::ui::screens::{
     history::HistoricoAction,
     lobby::{LobbyAction, LobbyConfig, LobbyState},
     main_menu::MenuAction,
+    profile::{PerfilAction, PerfilState},
 };
 use crate::ui::theme;
 
@@ -35,6 +36,7 @@ enum Tela {
     Lobby,
     Jogo,
     Historico,
+    Perfil,
 }
 
 /// Sessão de jogo ativa.
@@ -44,6 +46,7 @@ struct SessaoJogo {
     placar: Placar,
     inicio: Instant,
     cpu_turno: bool,      // true quando a CPU deve jogar neste frame
+    aguardando_cpu: bool, // true quando a CPU está calculando a jogada em background
     aguardando_peer: bool, // true quando é turno do peer P2P (bloqueia input local)
 }
 
@@ -54,12 +57,18 @@ pub struct AppState {
     sessao: Option<SessaoJogo>,
     db: Option<Database>,
     historico_cache: Vec<crate::storage::MatchRecord>,
+    /// Estado da tela de perfis.
+    perfil_state: PerfilState,
     /// Handle de rede P2P, presente apenas durante uma sessão P2P.
     network: Option<NetworkHandle>,
     /// Ticket P2P gerado pelo host, exibido no lobby para compartilhamento.
     pub ticket_p2p: Option<String>,
     /// Mensagem de status de rede ("Conectando...", "Erro: ...", etc.).
     pub status_rede: Option<String>,
+    /// Transmissor de jogadas da CPU calculadas em background.
+    tx_cpu_move: tokio::sync::mpsc::Sender<Option<(usize, usize)>>,
+    /// Receptor de jogadas da CPU calculadas em background.
+    rx_cpu_move: tokio::sync::mpsc::Receiver<Option<(usize, usize)>>,
 }
 
 impl AppState {
@@ -90,15 +99,34 @@ impl AppState {
             .and_then(|d| d.list_matches(50).ok())
             .unwrap_or_default();
 
+        let (tx_cpu_move, rx_cpu_move) = tokio::sync::mpsc::channel(16);
+
+        // Carrega perfis para o lobby e estado de perfis
+        let perfis = db
+            .as_ref()
+            .and_then(|d| d.list_profiles().ok())
+            .unwrap_or_default();
+
+        let mut lobby_state = LobbyState::default();
+        lobby_state.perfis_disponiveis = perfis.clone();
+
+        let mut perfil_state = PerfilState::default();
+        if let Some(banco) = &db {
+            perfil_state.recarregar(banco);
+        }
+
         Self {
             tela_atual: Tela::MenuPrincipal,
-            lobby_state: LobbyState::default(),
+            lobby_state,
             sessao: None,
             db,
             historico_cache,
+            perfil_state,
             network: None,
             ticket_p2p: None,
             status_rede: None,
+            tx_cpu_move,
+            rx_cpu_move,
         }
     }
 
@@ -123,6 +151,7 @@ impl AppState {
             placar: Placar::default(),
             inicio: Instant::now(),
             cpu_turno: false,
+            aguardando_cpu: false,
             aguardando_peer: false,
         });
         self.tela_atual = Tela::Jogo;
@@ -130,7 +159,7 @@ impl AppState {
 
     /// Inicia uma sessão P2P como host.
     fn hospedar_p2p(&mut self, nosso_nome: String) {
-        let mut handle = iniciar_network_manager();
+        let handle = iniciar_network_manager();
         let _ = handle
             .tx_cmd
             .try_send(NetworkCommand::Hospedar { nosso_nome });
@@ -141,7 +170,7 @@ impl AppState {
 
     /// Conecta a uma sessão P2P existente usando o ticket do host.
     fn conectar_p2p(&mut self, ticket: String, nosso_nome: String) {
-        let mut handle = iniciar_network_manager();
+        let handle = iniciar_network_manager();
         let _ = handle.tx_cmd.try_send(NetworkCommand::Conectar {
             ticket_str: ticket,
             nosso_nome,
@@ -167,17 +196,25 @@ impl AppState {
                 }
                 NetworkEvent::PeerConectado { nome_peer } => {
                     self.status_rede = None;
-                    // Inicia a sessao com config P2P real
                     let config = self.lobby_state.config.clone();
-                    let config_com_peer = LobbyConfig {
-                        nome_o: nome_peer,
-                        ..config
+                    let is_host = self.ticket_p2p.is_some();
+                    let config_com_peer = if is_host {
+                        LobbyConfig {
+                            nome_o: nome_peer,
+                            ..config
+                        }
+                    } else {
+                        LobbyConfig {
+                            nome_x: nome_peer, // Host é X
+                            nome_o: config.nome_x.clone(), // Guest é O
+                            ..config
+                        }
                     };
                     self.iniciar_jogo(config_com_peer);
                     // O host joga com X (primeiro turno), guest aguarda
                     if let Some(sessao) = &mut self.sessao {
                         // guest: is_host = false → aguarda o host jogar
-                        sessao.aguardando_peer = self.ticket_p2p.is_none();
+                        sessao.aguardando_peer = !is_host;
                     }
                 }
                 NetworkEvent::JogadaRecebida { quad, cell } => {
@@ -229,26 +266,45 @@ impl AppState {
         }
     }
 
-    /// Executa a jogada da CPU se for seu turno.
-    fn tick_cpu(&mut self) {
+    /// Drena as jogadas da CPU calculadas em background.
+    fn processar_jogadas_cpu(&mut self) {
+        while let Ok(jogada) = self.rx_cpu_move.try_recv() {
+            if let Some(sessao) = &mut self.sessao {
+                sessao.aguardando_cpu = false;
+                if let Some((quad, cell)) = jogada {
+                    let resultado = sessao.board.make_move(quad, cell);
+
+                    if let Some(resultado) = resultado {
+                        self.registrar_resultado(resultado);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Executa a jogada da CPU se for seu turno, disparando a busca em background.
+    fn tick_cpu(&mut self, ctx: &Context) {
         let Some(sessao) = &mut self.sessao else {
             return;
         };
 
-        if !sessao.cpu_turno || sessao.board.is_over() {
+        if !sessao.cpu_turno || sessao.board.is_over() || sessao.aguardando_cpu {
             return;
         }
 
         sessao.cpu_turno = false;
+        sessao.aguardando_cpu = true;
 
+        let board = sessao.board.clone();
         let nivel = sessao.config.nivel_cpu;
-        if let Some((quad, cell)) = best_move(&sessao.board, nivel) {
-            let resultado = sessao.board.make_move(quad, cell);
+        let tx = self.tx_cpu_move.clone();
+        let ctx_clone = ctx.clone();
 
-            if let Some(resultado) = resultado {
-                self.registrar_resultado(resultado);
-            }
-        }
+        tokio::spawn(async move {
+            let jogada = best_move(&board, nivel);
+            let _ = tx.send(jogada).await;
+            ctx_clone.request_repaint();
+        });
     }
 
     /// Registra o resultado de uma partida no banco e atualiza o placar.
@@ -290,9 +346,11 @@ impl eframe::App for AppState {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         // Drena eventos de rede (non-blocking)
         self.processar_eventos_rede();
+        // Drena jogadas da CPU (non-blocking)
+        self.processar_jogadas_cpu();
 
-        // Executa turno da CPU antes de renderizar (evita frame em branco)
-        self.tick_cpu();
+        // Executa turno da CPU se necessário
+        self.tick_cpu(ctx);
 
         egui::CentralPanel::default()
             .frame(
@@ -305,9 +363,23 @@ impl eframe::App for AppState {
                     Tela::MenuPrincipal => {
                         let ação = crate::ui::screens::main_menu::render_main_menu(ui);
                         match ação {
-                            MenuAction::IrParaLobby => self.tela_atual = Tela::Lobby,
+                            MenuAction::IrParaLobby => {
+                                // Atualiza perfis disponíveis ao entrar no lobby
+                                if let Some(banco) = &self.db {
+                                    self.lobby_state.perfis_disponiveis =
+                                        banco.list_profiles().unwrap_or_default();
+                                }
+                                self.tela_atual = Tela::Lobby;
+                            }
                             MenuAction::IrParaHistorico => self.tela_atual = Tela::Historico,
-                            MenuAction::IrParaPerfil => { /* TODO: tela de perfil */ }
+                            MenuAction::IrParaPerfil => {
+                                // Recarrega perfis ao entrar na tela
+                                if let Some(banco) = &self.db {
+                                    self.perfil_state.recarregar(banco);
+                                }
+                                self.perfil_state.mensagem_feedback = None;
+                                self.tela_atual = Tela::Perfil;
+                            }
                             MenuAction::Sair => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
                             MenuAction::Nenhuma => {}
                         }
@@ -352,6 +424,7 @@ impl eframe::App for AppState {
                     Tela::Jogo => {
                         if let Some(sessao) = &self.sessao {
                             let interativo = !sessao.cpu_turno
+                                && !sessao.aguardando_cpu
                                 && !sessao.aguardando_peer
                                 && !sessao.board.is_over();
                             let nome_x = sessao.config.nome_x.clone();
@@ -431,6 +504,18 @@ impl eframe::App for AppState {
                             HistoricoAction::Nenhuma => {}
                         }
                     }
+
+                    Tela::Perfil => {
+                        let ação = crate::ui::screens::profile::render_perfil(
+                            ui,
+                            &mut self.perfil_state,
+                            self.db.as_ref(),
+                        );
+                        match ação {
+                            PerfilAction::Voltar => self.tela_atual = Tela::MenuPrincipal,
+                            PerfilAction::Nenhuma => {}
+                        }
+                    }
                 }
             });
 
@@ -438,7 +523,7 @@ impl eframe::App for AppState {
         let precisa_repaint = self
             .sessao
             .as_ref()
-            .map(|s| s.cpu_turno || s.aguardando_peer)
+            .map(|s| s.cpu_turno || s.aguardando_cpu || s.aguardando_peer)
             .unwrap_or(false)
             || self.network.is_some();
 

@@ -6,6 +6,7 @@
 pub mod db;
 pub mod history;
 pub mod profile;
+pub mod settings;
 
 pub use db::Database;
 pub use history::{MatchRecord, ProfileStats};

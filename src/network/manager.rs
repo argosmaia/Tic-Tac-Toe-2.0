@@ -158,7 +158,7 @@ async fn run_host(
         .ok();
 
     // Loop de jogo
-    run_game_loop(conn, rx_cmd, tx_evt).await
+    run_game_loop(conn, rx_cmd, tx_evt, true).await
 }
 
 // ──────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ async fn run_guest(
         .await
         .ok();
 
-    run_game_loop(conn, rx_cmd, tx_evt).await
+    run_game_loop(conn, rx_cmd, tx_evt, false).await
 }
 
 // ──────────────────────────────────────────────────────────
@@ -246,12 +246,23 @@ async fn run_game_loop(
     conn: Connection,
     mut rx_cmd: mpsc::Receiver<NetworkCommand>,
     tx_evt: mpsc::Sender<NetworkEvent>,
+    is_host: bool,
 ) -> Result<()> {
-    // Abre stream unidirecional para enviar jogadas
-    let (mut send_jog, mut recv_jog) = conn
-        .open_bi()
-        .await
-        .context("Falha ao abrir stream de jogo")?;
+    // Abre stream bidirecional de jogo de forma assimétrica
+    let (mut send_jog, mut recv_jog) = if is_host {
+        conn.open_bi()
+            .await
+            .context("Falha ao abrir stream de jogo (Host)")?
+    } else {
+        conn.accept_bi()
+            .await
+            .context("Falha ao aceitar stream de jogo (Guest)")?
+    };
+
+    // Timer de keepalive: envia heartbeat a cada 15s sem atividade de jogadas
+    let mut intervalo_heartbeat = tokio::time::interval(std::time::Duration::from_secs(15));
+    // Consome o tick imediato — não queremos enviar heartbeat ao abrir a conexão
+    intervalo_heartbeat.tick().await;
 
     loop {
         tokio::select! {
@@ -266,8 +277,12 @@ async fn run_game_loop(
                             }).await.ok();
                             break;
                         }
+                        // Reinicia o intervalo após atividade real
+                        intervalo_heartbeat.reset();
                     }
                     Some(NetworkCommand::Desconectar) | None => {
+                        // Notifica desistência antes de fechar a conexão (encerramento gracioso)
+                        let _ = escrever_mensagem(&mut send_jog, &GameMessage::Desistir).await;
                         conn.close(0u32.into(), b"bye");
                         break;
                     }
@@ -280,6 +295,11 @@ async fn run_game_loop(
                 match resultado {
                     Ok(GameMessage::Jogada { quad, cell }) => {
                         tx_evt.send(NetworkEvent::JogadaRecebida { quad, cell }).await.ok();
+                        // Atividade real recebida — reinicia o keepalive
+                        intervalo_heartbeat.reset();
+                    }
+                    Ok(GameMessage::Heartbeat) => {
+                        // Ping recebido — conexão está viva, ignorar silenciosamente
                     }
                     Ok(GameMessage::Desistir) => {
                         tx_evt.send(NetworkEvent::PeerDesconectado).await.ok();
@@ -291,6 +311,16 @@ async fn run_game_loop(
                         tx_evt.send(NetworkEvent::PeerDesconectado).await.ok();
                         break;
                     }
+                }
+            }
+
+            // Keepalive periódico — envia heartbeat quando não há atividade de jogadas
+            _ = intervalo_heartbeat.tick() => {
+                if let Err(e) = escrever_mensagem(&mut send_jog, &GameMessage::Heartbeat).await {
+                    tx_evt.send(NetworkEvent::Erro {
+                        mensagem: format!("Falha no keepalive: {e}"),
+                    }).await.ok();
+                    break;
                 }
             }
         }
