@@ -139,15 +139,22 @@ async fn run_host(
         .await
         .ok();
 
-    // Aguarda o guest conectar
-    let connecting = endpoint
-        .accept()
-        .await
-        .context("Falha ao aguardar conexão")?;
-
-    let conn = connecting
-        .await
-        .context("Falha ao aceitar conexão")?;
+    // Aguarda o guest conectar OU cancelamento imediato da UI
+    let conn = tokio::select! {
+        connecting = endpoint.accept() => {
+            let connecting = connecting.context("Falha ao aguardar conexão")?;
+            connecting.await.context("Falha ao aceitar conexão")?
+        }
+        cmd = rx_cmd.recv() => {
+            match cmd {
+                Some(NetworkCommand::Desconectar) | None => {
+                    // Usuário desistiu no lobby e voltou ao menu principal
+                    return Ok(());
+                }
+                _ => anyhow::bail!("Comando inesperado durante aguardo de conexão"),
+            }
+        }
+    };
 
     // Handshake: troca de nomes
     let nome_peer = executar_handshake_host(&conn, &nosso_nome).await?;
@@ -168,7 +175,7 @@ async fn run_host(
 async fn run_guest(
     ticket_str: String,
     nosso_nome: String,
-    rx_cmd: mpsc::Receiver<NetworkCommand>,
+    mut rx_cmd: mpsc::Receiver<NetworkCommand>,
     tx_evt: mpsc::Sender<NetworkEvent>,
 ) -> Result<()> {
     // Parse do ticket
@@ -181,11 +188,21 @@ async fn run_guest(
         .await
         .context("Falha ao criar endpoint iroh")?;
 
-    // Conecta ao host usando o NodeAddr do ticket
-    let conn = endpoint
-        .connect(ticket.node_addr().clone(), ALPN_VELHA)
-        .await
-        .context("Falha ao conectar ao host — verifique o ticket e tente novamente")?;
+    // Conecta ao host usando o NodeAddr do ticket OU cancela se a UI solicitar
+    let conn = tokio::select! {
+        conn_res = endpoint.connect(ticket.node_addr().clone(), ALPN_VELHA) => {
+            conn_res.context("Falha ao conectar ao host — verifique o ticket e tente novamente")?
+        }
+        cmd = rx_cmd.recv() => {
+            match cmd {
+                Some(NetworkCommand::Desconectar) | None => {
+                    // Usuário cancelou a conexão pendente
+                    return Ok(());
+                }
+                _ => anyhow::bail!("Comando inesperado durante conexão"),
+            }
+        }
+    };
 
     // Handshake
     let nome_host = executar_handshake_guest(&conn, &nosso_nome).await?;
