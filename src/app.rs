@@ -130,7 +130,7 @@ impl AppState {
         }
     }
 
-    /// Tenta abrir (ou criar) o banco local em `~/.velha2/data.db`.
+    /// Tenta abrir (ou criar) o banco local em `ultimate-tictactoe`.
     fn abrir_banco() -> Option<Database> {
         let mut caminho = dirs_next_or_home();
         caminho.push("data.db");
@@ -534,11 +534,11 @@ impl eframe::App for AppState {
 }
 
 /// Retorna o diretório de dados da aplicação, multiplataforma:
-/// - Linux:   ~/.local/share/velha2/
-/// - macOS:   ~/Library/Application Support/velha2/
-/// - Windows: C:\Users\<user>\AppData\Roaming\velha2\
+/// - Linux:   ~/.local/share/ultimate-tictactoe/
+/// - macOS:   ~/Library/Application Support/ultimate-tictactoe/
+/// - Windows: C:\Users\<user>\AppData\Roaming\ultimate-tictactoe\
 fn dirs_next_or_home() -> PathBuf {
-    ProjectDirs::from("br", "HappyCode", "velha2")
+    ProjectDirs::from("br", "HappyCode", "ultimate-tictactoe")
         .map(|dirs| dirs.data_dir().to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."))
 }

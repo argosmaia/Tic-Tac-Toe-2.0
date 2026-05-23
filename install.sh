@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — Instala o Velha 2.0 como app desktop Linux
+# install.sh — Instala o Ultimate Tic-Tac-Toe como app desktop Linux
 #
 # Modos:
 #   bash install.sh            → instala globalmente (requer senha de admin)
@@ -12,7 +12,7 @@
 set -e
 
 PROJETO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARIO_NOME="velha2"
+BINARIO_NOME="ultimate-tictactoe"
 MODO_LOCAL=false
 DESINSTALAR=false
 
@@ -38,7 +38,7 @@ else
 fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  🎮 Velha 2.0 — Instalador Linux"
+echo "  🎮 Ultimate Tic-Tac-Toe — Instalador Linux"
 [ "$MODO_LOCAL" = true ] && echo "  (modo: usuário local)" || echo "  (modo: sistema global)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -53,7 +53,7 @@ if [ "$DESINSTALAR" = true ]; then
         $CMD_PRIVILEGIO rm -f "$BINARIO_DESTINO" "$ICONE_DESTINO" "$DESKTOP_DESTINO"
         $CMD_PRIVILEGIO update-desktop-database 2>/dev/null || true
     fi
-    echo "   ✅ Velha 2.0 desinstalado."
+    echo "   ✅ Ultimate Tic-Tac-Toe desinstalado."
     exit 0
 fi
 
@@ -86,17 +86,17 @@ echo ""
 echo "🖼️  Instalando ícone..."
 if [ "$MODO_LOCAL" = true ]; then
     mkdir -p "$(dirname "$ICONE_DESTINO")"
-    install -Dm644 "${PROJETO_DIR}/assets/velha2.png" "${ICONE_DESTINO}"
+    install -Dm644 "${PROJETO_DIR}/assets/ultimate-tictactoe.png" "${ICONE_DESTINO}"
     for TAMANHO in 48 64 128 256 512; do
         mkdir -p "$HOME/.local/share/icons/hicolor/${TAMANHO}x${TAMANHO}/apps"
-        install -Dm644 "${PROJETO_DIR}/assets/velha2.png" \
+        install -Dm644 "${PROJETO_DIR}/assets/ultimate-tictactoe.png" \
             "$HOME/.local/share/icons/hicolor/${TAMANHO}x${TAMANHO}/apps/${BINARIO_NOME}.png"
     done
 else
-    $CMD_PRIVILEGIO install -Dm644 "${PROJETO_DIR}/assets/velha2.png" "${ICONE_DESTINO}"
+    $CMD_PRIVILEGIO install -Dm644 "${PROJETO_DIR}/assets/ultimate-tictactoe.png" "${ICONE_DESTINO}"
     for TAMANHO in 48 64 128 256 512; do
         $CMD_PRIVILEGIO mkdir -p "/usr/share/icons/hicolor/${TAMANHO}x${TAMANHO}/apps"
-        $CMD_PRIVILEGIO install -Dm644 "${PROJETO_DIR}/assets/velha2.png" \
+        $CMD_PRIVILEGIO install -Dm644 "${PROJETO_DIR}/assets/ultimate-tictactoe.png" \
             "/usr/share/icons/hicolor/${TAMANHO}x${TAMANHO}/apps/${BINARIO_NOME}.png"
     done
 fi
@@ -106,7 +106,7 @@ echo ""
 # 4. Instalar .desktop (ajusta o Exec= para o destino correto)
 echo "🖥️  Registrando entrada no menu de aplicativos..."
 DESKTOP_TEMP="$(mktemp)"
-sed "s|Exec=.*|Exec=${BINARIO_DESTINO}|" "${PROJETO_DIR}/velha2.desktop" > "$DESKTOP_TEMP"
+sed "s|Exec=.*|Exec=${BINARIO_DESTINO}|" "${PROJETO_DIR}/ultimate-tictactoe.desktop" > "$DESKTOP_TEMP"
 
 if [ "$MODO_LOCAL" = true ]; then
     mkdir -p "$(dirname "$DESKTOP_DESTINO")"
@@ -125,8 +125,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  ✅ Instalação concluída!"
 echo ""
 echo "  Para rodar:"
-echo "    Terminal:  velha2"
-echo "    Menu:      Procure por 'Velha 2.0' nos aplicativos"
+echo "    Terminal:  ultimate-tictactoe"
+echo "    Menu:      Procure por 'Ultimate Tic-Tac-Toe' nos aplicativos"
 echo ""
 echo "  Para desinstalar:"
 [ "$MODO_LOCAL" = true ] \

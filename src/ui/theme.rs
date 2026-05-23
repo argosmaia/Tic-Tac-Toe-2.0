@@ -6,7 +6,7 @@
 
 use egui::Color32;
 
-/// Paleta de cores do Velha 2.0.
+/// Paleta de cores do Ultimate Tic-Tac-Toe.
 ///
 /// Tema dark espacial com acentos vibrantes para X e O.
 pub mod cores {
@@ -83,7 +83,7 @@ pub mod tipografia {
     pub const SIMBOLO_OVERLAY: f32 = 40.0;
 }
 
-/// Configura o estilo visual global do egui com o design system do Velha 2.0.
+/// Configura o estilo visual global do egui com o design system do Ultimate Tic-Tac-Toe.
 pub fn aplicar_tema(ctx: &egui::Context) {
     let mut estilo = (*ctx.style()).clone();
 

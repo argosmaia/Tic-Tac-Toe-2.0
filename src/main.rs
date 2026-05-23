@@ -1,4 +1,4 @@
-//! Ponto de entrada do Velha 2.0.
+//! Ponto de entrada do Ultimate Tic-Tac-Toe.
 //!
 //! Inicializa o runtime tokio (necessário para iroh) e lança o app eframe.
 
@@ -26,7 +26,7 @@ fn main() -> eframe::Result<()> {
     // Configura janela nativa
     let opções = NativeOptions {
         viewport: ViewportBuilder::default()
-            .with_title("Velha 2.0 — Ultimate Tic-Tac-Toe")
+            .with_title("Ultimate Tic-Tac-Toe")
             .with_inner_size([800.0, 640.0])
             .with_min_inner_size([720.0, 540.0])
             .with_resizable(true),
@@ -34,7 +34,7 @@ fn main() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "Velha 2.0",
+        "ultimate-tictactoe",
         opções,
         Box::new(|cc| Box::new(AppState::new(cc))),
     )

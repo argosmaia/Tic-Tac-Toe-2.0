@@ -25,7 +25,7 @@ impl GameSession {
     pub fn new_as_host(host_name: String) -> Self {
         // Gera um session_id temporário baseado em timestamp
         let session_id = format!(
-            "velha2-{}",
+            "ultimate-tictactoe-{}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()

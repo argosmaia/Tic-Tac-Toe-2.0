@@ -1,4 +1,4 @@
-//! Protocolo de mensagens da rede P2P Velha 2.0.
+//! Protocolo de mensagens da rede P2P Ultimate Tic-Tac-Toe.
 //!
 //! Serializado como JSON e transportado sobre streams QUIC do iroh.
 //! Cada mensagem é precedida por 4 bytes (big-endian) com o tamanho do payload.

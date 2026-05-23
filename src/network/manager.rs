@@ -17,8 +17,8 @@ use tokio::sync::mpsc;
 
 use crate::network::protocol::GameMessage;
 
-/// ALPN do protocolo Velha 2.0 — identifica nossa aplicação no handshake iroh.
-const ALPN_VELHA: &[u8] = b"velha2/0.1";
+/// ALPN do protocolo Ultimate Tic-Tac-Toe — identifica nossa aplicação no handshake iroh.
+const ALPN_ULTIMATE: &[u8] = b"ultimate-tictactoe/0.1";
 
 // ──────────────────────────────────────────────────────────
 // Tipos de canal UI ↔ Rede
@@ -120,7 +120,7 @@ async fn run_host(
 ) -> Result<()> {
     // Cria o endpoint com ALPN configurado
     let endpoint = Endpoint::builder()
-        .alpns(vec![ALPN_VELHA.to_vec()])
+        .alpns(vec![ALPN_ULTIMATE.to_vec()])
         .bind()
         .await
         .context("Falha ao criar endpoint iroh")?;
@@ -190,7 +190,7 @@ async fn run_guest(
 
     // Conecta ao host usando o NodeAddr do ticket OU cancela se a UI solicitar
     let conn = tokio::select! {
-        conn_res = endpoint.connect(ticket.node_addr().clone(), ALPN_VELHA) => {
+        conn_res = endpoint.connect(ticket.node_addr().clone(), ALPN_ULTIMATE) => {
             conn_res.context("Falha ao conectar ao host — verifique o ticket e tente novamente")?
         }
         cmd = rx_cmd.recv() => {

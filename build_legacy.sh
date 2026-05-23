@@ -24,27 +24,27 @@ COPY . .
 RUN cargo build --release
 
 # Organiza a arvore do pacote
-RUN mkdir -p velha2-linux-v0.1.1-legacy/assets \
-    && mkdir -p velha2-linux-v0.1.1-legacy/target/release \
-    && cp target/release/velha2 velha2-linux-v0.1.1-legacy/target/release/ \
-    && cp assets/velha2.png velha2-linux-v0.1.1-legacy/assets/ \
-    && cp install.sh velha2-linux-v0.1.1-legacy/ \
-    && cp velha2.desktop velha2-linux-v0.1.1-legacy/ \
-    && cp README.md velha2-linux-v0.1.1-legacy/ \
-    && tar -czvf velha2-linux-v0.1.1-legacy.tar.gz velha2-linux-v0.1.1-legacy
+RUN mkdir -p ultimate-tictactoe-linux-v0.2.0-legacy/assets \
+    && mkdir -p ultimate-tictactoe-linux-v0.2.0-legacy/target/release \
+    && cp target/release/ultimate-tictactoe ultimate-tictactoe-linux-v0.2.0-legacy/target/release/ \
+    && cp assets/ultimate-tictactoe.png ultimate-tictactoe-linux-v0.2.0-legacy/assets/ \
+    && cp install.sh ultimate-tictactoe-linux-v0.2.0-legacy/ \
+    && cp ultimate-tictactoe.desktop ultimate-tictactoe-linux-v0.2.0-legacy/ \
+    && cp README.md ultimate-tictactoe-linux-v0.2.0-legacy/ \
+    && tar -czvf ultimate-tictactoe-linux-v0.2.0-legacy.tar.gz ultimate-tictactoe-linux-v0.2.0-legacy
 EOF
 
 echo "⏳ Compilando imagem e jogo no container (isso pode levar uns 3-5 minutos)..."
-docker build -t velha2-legacy-builder -f Dockerfile.legacy .
+docker build -t ultimate-tictactoe-legacy-builder -f Dockerfile.legacy .
 
 echo "📦 Extraindo o pacote .tar.gz novo gerado..."
 # Puxa o arquivo de dentro da imagem recém-construída para sua máquina
-docker run --rm --name extractor -d velha2-legacy-builder tail -f /dev/null
-docker cp extractor:/app/velha2-linux-v0.1.1-legacy.tar.gz ./
+docker run --rm --name extractor -d ultimate-tictactoe-legacy-builder tail -f /dev/null
+docker cp extractor:/app/ultimate-tictactoe-linux-v0.2.0-legacy.tar.gz ./
 docker stop extractor
 
 # Limpa o lixo
 rm Dockerfile.legacy
-docker rmi velha2-legacy-builder
+docker rmi ultimate-tictactoe-legacy-builder
 
-echo "✅ Feito! O arquivo velha2-linux-v0.1.1-legacy.tar.gz foi gerado na raiz do seu projeto!"
+echo "✅ Feito! O arquivo ultimate-tictactoe-linux-v0.2.0-legacy.tar.gz foi gerado na raiz do seu projeto!"
