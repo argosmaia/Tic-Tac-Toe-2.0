@@ -6,8 +6,9 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::game::{rules, Board, Player};
+use crate::game::{rules, Board};
 
+use super::experience::{best_move_experience, best_move_experience_fallback};
 use super::minimax::best_move_at_depth;
 
 /// Nível de dificuldade da IA.
@@ -16,12 +17,14 @@ use super::minimax::best_move_at_depth;
 /// - `Jogadora`: heurística simples sem lookahead (ganhar se puder, bloquear se necessário)
 /// - `Master`: Minimax com Alpha-Beta, profundidade máxima 4, heurística local
 /// - `Killer`: Minimax com Alpha-Beta, profundidade máxima 6, heurística macro+micro combinada
+/// - `TheExperience`: Minimax profundidade 9 + viés estatístico do histórico do jogador
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AiLevel {
     Noob,
     Jogadora,
     Master,
     Killer,
+    TheExperience,
 }
 
 impl AiLevel {
@@ -31,11 +34,15 @@ impl AiLevel {
             AiLevel::Jogadora => "Jogadora",
             AiLevel::Master => "Master",
             AiLevel::Killer => "Killer 💀",
+            AiLevel::TheExperience => "The Experience 🧠",
         }
     }
 }
 
 /// Calcula a melhor jogada para o jogador atual conforme o nível de dificuldade.
+///
+/// Para o nível `TheExperience`, use `best_move_with_heatmap` para fornecer o mapa
+/// de calor do jogador. Esta função usa o fallback (minimax puro) nesse caso.
 ///
 /// # Retorna
 /// Par `(quadrante, célula)` da jogada escolhida.
@@ -52,7 +59,26 @@ pub fn best_move(board: &Board, level: AiLevel) -> Option<(usize, usize)> {
         AiLevel::Jogadora => jogar_jogadora(board, &jogadas),
         AiLevel::Master => best_move_at_depth(board, 4),
         AiLevel::Killer => best_move_at_depth(board, 6),
+        AiLevel::TheExperience => best_move_experience_fallback(board),
     }
+}
+
+/// Calcula a melhor jogada para o nível "The Experience" usando o mapa de calor do jogador.
+///
+/// Deve ser chamada em vez de `best_move` quando o nível é `TheExperience`
+/// e há histórico de jogadas do humano disponível.
+///
+/// # Retorna
+/// Par `(quadrante, célula)` da jogada escolhida com viés estatístico.
+pub fn best_move_with_heatmap(
+    board: &Board,
+    heatmap: &[[f32; 9]; 9],
+) -> Option<(usize, usize)> {
+    let jogadas = rules::valid_moves(board);
+    if jogadas.is_empty() {
+        return None;
+    }
+    best_move_experience(board, heatmap)
 }
 
 /// Nível Noob: 80% aleatório, 20% melhor jogada por "sorte".

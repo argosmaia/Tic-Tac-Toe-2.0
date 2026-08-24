@@ -198,10 +198,11 @@ pub fn render_perfil(
                                     ui.add_space(2.0);
                                     ui.label(
                                         egui::RichText::new(format!(
-                                            "🏆 {}V  💔 {}D  🤝 {}E  |  {} partidas",
+                                            "🏆 {}V  💔 {}D  🤝 {}E  ⚡ {}  |  {} partidas",
                                             stats.wins,
                                             stats.losses,
                                             stats.draws,
+                                            stats.abandoned,
                                             stats.total
                                         ))
                                         .size(tipografia::PEQUENO)
