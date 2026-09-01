@@ -39,7 +39,7 @@
 - 🎮 **Multijogador Local** — dois competidores compartilhando a mesma máquina e periféricos.
 - 🤖 **Modo Contra a CPU** com 4 níveis de dificuldade:
   - `Noob` — decisões predominantemente aleatórias (com raros acertos não intencionais).
-  - `Jogadora` — atua de forma oportunista, realizando bloqueios imediatos e buscando a vitória quando visível.
+  - `Player` — atua de forma oportunista, realizando bloqueios imediatos e buscando a vitória quando visível.
   - `Master` — implementado com algoritmo Minimax e poda Alpha-Beta (profundidade de 4 níveis).
   - `Killer 💀` — inteligência artificial avançada utilizando Minimax com poda Alpha-Beta (profundidade de 6 níveis) integrada a uma heurística refinada de avaliação macro e micro.
 - 💾 **Persistência de Dados** — histórico de partidas gravado automaticamente em um banco SQLite local.
