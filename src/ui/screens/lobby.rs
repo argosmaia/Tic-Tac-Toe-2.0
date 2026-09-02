@@ -23,7 +23,7 @@ impl Default for LobbyConfig {
             modo: GameMode::Local,
             nome_x: String::from("Jogador X"),
             nome_o: String::from("Jogador O"),
-            nivel_cpu: AiLevel::Jogadora,
+            nivel_cpu: AiLevel::Player,
             session_id_entrada: String::new(),
         }
     }
@@ -150,7 +150,7 @@ pub fn render_lobby(
                 ui.horizontal_wrapped(|ui| {
                     for nivel in [
                         AiLevel::Noob,
-                        AiLevel::Jogadora,
+                        AiLevel::Player,
                         AiLevel::Master,
                         AiLevel::Killer,
                         AiLevel::TheExperience,
@@ -319,7 +319,11 @@ fn campo_nome_com_perfis(
                         egui::Button::new(
                             egui::RichText::new(&perfil.name)
                                 .size(tipografia::PEQUENO)
-                                .color(if selecionado { cor_label } else { cores::TEXTO_SECUNDARIO }),
+                                .color(if selecionado {
+                                    cor_label
+                                } else {
+                                    cores::TEXTO_SECUNDARIO
+                                }),
                         )
                         .fill(cor_fundo)
                         .stroke(egui::Stroke::new(

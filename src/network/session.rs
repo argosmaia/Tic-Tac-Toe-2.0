@@ -19,7 +19,7 @@ pub struct GameSession {
 }
 
 impl GameSession {
-    /// Cria uma nova sessão como host (placeholder — implementação iroh completa futura).
+    /// Cria uma nova sessão como host.
     ///
     /// Em produção: inicializa um iroh Endpoint, obtém o NodeAddr e o serializa como session_id.
     pub fn new_as_host(host_name: String) -> Self {
@@ -37,6 +37,16 @@ impl GameSession {
             host_name,
             peer_status: PeerStatus::Disconnected,
             is_host: true,
+        }
+    }
+
+    /// Cria uma sessão de convidado enquanto a conexão é estabelecida.
+    pub fn new_as_guest(session_id: String, host_name: String) -> Self {
+        Self {
+            session_id,
+            host_name,
+            peer_status: PeerStatus::Connecting,
+            is_host: false,
         }
     }
 

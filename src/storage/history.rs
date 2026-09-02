@@ -32,6 +32,16 @@ pub struct MoveRecord {
     pub cell: usize,
 }
 
+impl MoveRecord {
+    /// Retorna uma descrição curta para a tela de histórico.
+    pub fn resumo(&self) -> String {
+        format!(
+            "movimento #{} da partida #{} · turno {} · {} · quadrante {}, célula {}",
+            self.id, self.match_id, self.turn, self.player, self.quad + 1, self.cell + 1
+        )
+    }
+}
+
 /// Estatísticas agregadas de um perfil.
 #[derive(Debug, Default)]
 pub struct ProfileStats {

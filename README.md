@@ -2,9 +2,9 @@
 
 <div align="center">
 
-![Velha 2.0](assets/velha2.png)
+![Jogo da Velha 2.0](assets/tictactoe.png)
 
-**Um jogo de Velha do Mal — 9 mini-tabuleiros dentro de 1 tabuleiro grande.**
+**Um jogo da Velha do Mal — 9 mini-tabuleiros dentro de 1 tabuleiro grande.**
 
 [![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange?logo=rust)](https://www.rust-lang.org/)
 [![egui](https://img.shields.io/badge/UI-egui%200.27-blue)](https://github.com/emilk/egui)
@@ -44,7 +44,7 @@ A regra é simples e diabólica ao mesmo tempo:
 - 🎮 **Multiplayer local** — dois jogadores no mesmo teclado/mouse
 - 🤖 **vs CPU** em 4 níveis de dificuldade:
   - `Noob` — joga quase aleatório (20% de chance de fazer uma jogada boa por acidente)
-  - `Jogadora` — bloqueia e ataca quando pode
+  - `Player` — bloqueia e ataca quando pode
   - `Master` — Minimax com Alpha-Beta, profundidade 4
   - `Killer 💀` — Minimax com Alpha-Beta, profundidade 6 + heurística macro+micro
 - 💾 **Histórico de partidas** salvo em SQLite local
@@ -56,7 +56,7 @@ A regra é simples e diabólica ao mesmo tempo:
 ## 🗂️ Estrutura do Projeto
 
 ```
-velha2/
+Tic-Tac-Toe-2.0/
 ├── src/
 │   ├── main.rs              # Ponto de entrada
 │   ├── app.rs               # Orquestrador central de telas e estado
@@ -67,6 +67,7 @@ velha2/
 │   │   └── types.rs         # Player, Cell, QuadState, GameResult
 │   │
 │   ├── ai/                  # Motor de IA
+│   │    # A IA não é LLM ou rede neural, generativa e nem tem machine learning. É só um algoritmo de Minimax com poda Alpha-Beta.
 │   │   ├── minimax.rs       # Minimax com poda Alpha-Beta
 │   │   ├── heuristic.rs     # Avaliação de tabuleiro (Master/Killer)
 │   │   └── levels.rs        # Dispatcher de nível de dificuldade
@@ -99,7 +100,7 @@ velha2/
 │
 ├── Cargo.toml
 ├── install.sh               # Script de instalação Linux
-├── velha2.desktop           # Entrada no menu Linux
+├── jogodavelha2.0.desktop   # Entrada no menu Linux
 └── README.md
 ```
 
@@ -177,14 +178,14 @@ Após instalar, o jogo aparece no menu de aplicativos do GNOME, KDE ou qualquer 
 
 Caso você não tenha o Rust instalado e não queira compilar a partir do código-fonte, basta baixar o nosso pacote pré-compilado que já vem com o binário pronto:
 
-👉 **[Download velha2-linux-v0.1.1.tar.gz (15MB)](https://github.com/argosmaia/Tic-Tac-Toe-2.0/raw/develop/velha2-linux-v0.1.1.tar.gz)**
+👉 **[Download jogo-da-velha2-linux-v0.2.1.tar.gz](https://github.com/argosmaia/Tic-Tac-Toe-2.0/raw/develop/jogo-da-velha2-linux-v0.2.1.tar.gz)**
 
 Abra o terminal na pasta onde você baixou o arquivo e rode:
 
 ```bash
 # Descompacte o arquivo e entre na pasta
-tar -xf velha2-linux-v0.1.1.tar.gz
-cd velha2-linux-v0.1.1
+tar -xf jogo-da-velha2-linux-v0.2.1.tar.gz
+cd jogo-da-velha2-linux-v0.2.1
 
 # Rode o script de instalação (ele pula a compilação automaticamente!)
 bash install.sh --local
@@ -215,7 +216,7 @@ cargo run
 cargo build --release
 
 # Rodar o binário
-./target/release/velha2
+./target/release/jogodavelha2
 ```
 
 ### Criar um .app (opcional)
@@ -225,7 +226,7 @@ Se quiser um pacote `.app` clicável no Finder, instale o `cargo-bundle`:
 ```bash
 cargo install cargo-bundle
 cargo bundle --release
-# → gera: target/release/bundle/osx/Velha 2.0.app
+# → gera: target/release/bundle/osx/Jogo da Velha 2.0.app
 ```
 
 Arraste o `.app` para a pasta Aplicativos e pronto.
@@ -249,7 +250,7 @@ Não precisa instalar mais nada — o `rusqlite` compila o SQLite embutido autom
 
 ```powershell
 # Clone o repositório
-git clone https://github.com/seu-usuario/velha2.git
+git clone https://github.com/seu-usuario/jogodavelha2.git
 cd velha2
 
 # Rodar direto
@@ -259,7 +260,7 @@ cargo run
 cargo build --release
 
 # Rodar o binário
-.\target\release\velha2.exe
+.\target\release\jogodavelha2.exe
 ```
 
 ### Criar um atalho na Área de Trabalho
@@ -280,7 +281,7 @@ cargo build --release
 | Modo | Descrição |
 |------|-----------|
 | **Local** | Dois jogadores no mesmo PC, alternando mouse |
-| **vs CPU** | Você contra a IA nos níveis Noob, Jogadora, Master ou Killer |
+| **vs CPU** | Você contra a IA nos níveis Noob, Player, Master ou Killer |
 | **P2P** | Online entre dois PCs em redes diferentes — via iroh (hole punching automático) ✅ |
 
 ### Como jogar P2P (Maracanã ↔ São João de Meriti 🗺️)

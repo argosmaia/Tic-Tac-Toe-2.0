@@ -34,7 +34,7 @@ pub fn render_main_menu(ui: &mut Ui) -> MenuAction {
 
             // Logo / Título
             ui.label(
-                egui::RichText::new("VELHA")
+                egui::RichText::new("JOGO DA VELHA")
                     .size(tipografia::TITULO * 2.0)
                     .color(cores::BOTAO_PRIMARIO)
                     .strong(),
@@ -47,7 +47,7 @@ pub fn render_main_menu(ui: &mut Ui) -> MenuAction {
 
             ui.add_space(8.0);
             ui.label(
-                egui::RichText::new("Ultimate Tic-Tac-Toe")
+                egui::RichText::new("The Ultimate Tic-Tac-Toe")
                     .size(tipografia::SUBTITULO)
                     .color(cores::TEXTO_SECUNDARIO),
             );
@@ -83,7 +83,7 @@ pub fn render_main_menu(ui: &mut Ui) -> MenuAction {
 
             // Versão
             ui.label(
-                egui::RichText::new("v0.1.0 — HappyCode Productions")
+                egui::RichText::new("v0.2.1 — HappyCode Productions")
                     .size(tipografia::PEQUENO)
                     .color(cores::TEXTO_MUDO),
             );

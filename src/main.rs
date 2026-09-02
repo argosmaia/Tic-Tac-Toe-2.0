@@ -34,7 +34,7 @@ fn main() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "Velha 2.0",
+        "Jogo da Velha 2.0",
         opções,
         Box::new(|cc| Box::new(AppState::new(cc))),
     )

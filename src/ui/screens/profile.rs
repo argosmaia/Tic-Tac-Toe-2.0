@@ -120,21 +120,28 @@ pub fn render_perfil(
                     if botao_criar.clicked() {
                         if let Some(banco) = db {
                             let nome = estado.nome_novo.trim().to_owned();
-                            match banco.create_profile(&nome) {
-                                Ok(_) => {
-                                    estado.mensagem_feedback =
-                                        Some((format!("Perfil \"{}\" criado! ✨", nome), false));
-                                    estado.nome_novo.clear();
-                                    estado.recarregar(banco);
+                            match banco.get_profile_by_name(&nome) {
+                                Ok(Some(_)) => {
+                                    estado.mensagem_feedback = Some((
+                                        format!("Já existe um perfil com o nome \"{}\".", nome),
+                                        true,
+                                    ));
                                 }
-                                Err(e) => {
-                                    // Nome duplicado é o erro mais comum
-                                    let msg = if e.to_string().contains("UNIQUE") {
-                                        format!("Já existe um perfil com o nome \"{}\".", nome)
-                                    } else {
-                                        format!("Erro ao criar perfil: {e}")
-                                    };
-                                    estado.mensagem_feedback = Some((msg, true));
+                                Ok(None) => match banco.create_profile(&nome) {
+                                    Ok(_) => {
+                                        estado.mensagem_feedback =
+                                            Some((format!("Perfil \"{}\" criado! ✨", nome), false));
+                                        estado.nome_novo.clear();
+                                        estado.recarregar(banco);
+                                    }
+                                    Err(error) => {
+                                        estado.mensagem_feedback =
+                                            Some((format!("Erro ao criar perfil: {error}"), true));
+                                    }
+                                },
+                                Err(error) => {
+                                    estado.mensagem_feedback =
+                                        Some((format!("Erro ao consultar perfil: {error}"), true));
                                 }
                             }
                         } else {
@@ -207,6 +214,14 @@ pub fn render_perfil(
                                         ))
                                         .size(tipografia::PEQUENO)
                                         .color(cores::TEXTO_SECUNDARIO),
+                                    );
+                                    ui.label(
+                                        egui::RichText::new(format!(
+                                            "Criado em {}",
+                                            perfil.created_at
+                                        ))
+                                        .size(tipografia::PEQUENO)
+                                        .color(cores::TEXTO_MUDO),
                                     );
                                 });
 

@@ -16,6 +16,8 @@ use crate::game::{rules, Board, GameMode, GameResult, Player};
 use crate::network::{
     iniciar_network_manager, NetworkCommand, NetworkEvent, NetworkHandle,
 };
+use crate::network::peer::PeerStatus;
+use crate::network::session::GameSession;
 use crate::storage::Database;
 use crate::ui::screens::{
     game_screen::{GameScreenAction, Placar},
@@ -68,6 +70,8 @@ pub struct AppState {
     perfil_state: PerfilState,
     /// Handle de rede P2P, presente apenas durante uma sessão P2P.
     network: Option<NetworkHandle>,
+    /// Estado da sessão P2P atual, quando houver uma conexão em andamento.
+    sessao_p2p: Option<GameSession>,
     /// Ticket P2P gerado pelo host, exibido no lobby para compartilhamento.
     pub ticket_p2p: Option<String>,
     /// Mensagem de status de rede ("Conectando...", "Erro: ...", etc.).
@@ -100,7 +104,19 @@ impl AppState {
         theme::aplicar_tema(&cc.egui_ctx);
 
         // Tenta abrir o banco de dados local
-        let db = Self::abrir_banco();
+        let db = match Self::abrir_banco() {
+            Ok(db) => Some(db),
+            Err(error) => {
+                eprintln!("Falha ao abrir banco local: {error}");
+                None
+            }
+        };
+        if let Some(database) = &db {
+            let versao = database.get_setting("app_version").ok().flatten();
+            if versao.as_deref() != Some(env!("CARGO_PKG_VERSION")) {
+                let _ = database.set_setting("app_version", env!("CARGO_PKG_VERSION"));
+            }
+        }
         let historico_cache = db
             .as_ref()
             .and_then(|d| d.list_matches(50).ok())
@@ -131,6 +147,7 @@ impl AppState {
             historico_state: HistoricoState::default(),
             perfil_state,
             network: None,
+            sessao_p2p: None,
             ticket_p2p: None,
             status_rede: None,
             tx_cpu_move,
@@ -139,7 +156,7 @@ impl AppState {
     }
 
     /// Tenta abrir (ou criar) o banco local em `~/.velha2/data.db`.
-    fn abrir_banco() -> Option<Database> {
+    fn abrir_banco() -> Result<Database, crate::error::AppError> {
         let mut caminho = dirs_next_or_home();
         caminho.push("data.db");
 
@@ -148,7 +165,7 @@ impl AppState {
             let _ = std::fs::create_dir_all(pai);
         }
 
-        Database::open(&caminho).ok()
+        Ok(Database::open(&caminho)?)
     }
 
     /// Inicia uma nova sessão de jogo com a configuração do lobby.
@@ -169,6 +186,7 @@ impl AppState {
 
     /// Inicia uma sessão P2P como host.
     fn hospedar_p2p(&mut self, nosso_nome: String) {
+        self.sessao_p2p = Some(GameSession::new_as_host(nosso_nome.clone()));
         let handle = iniciar_network_manager();
         let _ = handle
             .tx_cmd
@@ -180,6 +198,7 @@ impl AppState {
 
     /// Conecta a uma sessão P2P existente usando o ticket do host.
     fn conectar_p2p(&mut self, ticket: String, nosso_nome: String) {
+        self.sessao_p2p = Some(GameSession::new_as_guest(ticket.clone(), nosso_nome.clone()));
         let handle = iniciar_network_manager();
         let _ = handle.tx_cmd.try_send(NetworkCommand::Conectar {
             ticket_str: ticket,
@@ -201,11 +220,33 @@ impl AppState {
         for evento in eventos {
             match evento {
                 NetworkEvent::HostPronto { ticket } => {
+                    if let Some(sessao) = &mut self.sessao_p2p {
+                        sessao.session_id = ticket.clone();
+                        let identificador = sessao.display_id().chars().take(12).collect::<String>();
+                        self.status_rede = Some(format!(
+                            "Ticket pronto! Sessão {}...",
+                            identificador
+                        ));
+                    } else {
+                        self.status_rede = Some("Ticket pronto! Compartilhe com seu amigo.".to_owned());
+                    }
                     self.ticket_p2p = Some(ticket);
-                    self.status_rede = Some("Ticket pronto! Compartilhe com seu amigo.".to_owned());
                 }
                 NetworkEvent::PeerConectado { nome_peer } => {
-                    self.status_rede = None;
+                    if let Some(sessao) = &mut self.sessao_p2p {
+                        sessao.host_name = nome_peer.clone();
+                        sessao.peer_status = PeerStatus::Connected {
+                            peer_name: nome_peer.clone(),
+                        };
+                        let papel = if sessao.is_host { "host" } else { "convidado" };
+                        if sessao.peer_status.is_connected() {
+                            self.status_rede = Some(format!(
+                                "Conectado como {} com {}",
+                                papel,
+                                sessao.host_name
+                            ));
+                        }
+                    }
                     let config = self.lobby_state.config.clone();
                     let is_host = self.ticket_p2p.is_some();
                     let config_com_peer = if is_host {
@@ -234,12 +275,18 @@ impl AppState {
                     }
                 }
                 NetworkEvent::PeerDesconectado => {
+                    if let Some(sessao) = &mut self.sessao_p2p {
+                        sessao.peer_status = PeerStatus::Lost;
+                    }
                     self.status_rede = Some("⚠️ Amigo desconectou.".to_owned());
                     if let Some(sessao) = &mut self.sessao {
                         sessao.aguardando_peer = false;
                     }
                 }
                 NetworkEvent::Erro { mensagem } => {
+                    if let Some(sessao) = &mut self.sessao_p2p {
+                        sessao.peer_status = PeerStatus::Lost;
+                    }
                     self.status_rede = Some(format!("❌ {}", mensagem));
                 }
             }
@@ -598,6 +645,7 @@ impl eframe::App for AppState {
                             ui,
                             &self.historico_cache,
                             &mut self.historico_state,
+                            self.db.as_ref(),
                         );
                         match ação {
                             HistoricoAction::Voltar => self.tela_atual = Tela::MenuPrincipal,

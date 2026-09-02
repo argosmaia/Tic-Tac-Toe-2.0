@@ -2,7 +2,7 @@
 
 use egui::Ui;
 
-use crate::storage::MatchRecord;
+use crate::storage::{Database, MatchRecord};
 use crate::ui::theme::{cores, espacamentos, tipografia};
 
 /// Filtro de exibição do histórico.
@@ -45,6 +45,7 @@ pub fn render_historico(
     ui: &mut Ui,
     partidas: &[MatchRecord],
     state: &mut HistoricoState,
+    db: Option<&Database>,
 ) -> HistoricoAction {
     let mut ação = HistoricoAction::Nenhuma;
 
@@ -202,6 +203,37 @@ pub fn render_historico(
                                             .size(tipografia::PEQUENO)
                                             .color(cores::TEXTO_MUDO),
                                     );
+                                    ui.add_space(12.0);
+                                    ui.label(
+                                        egui::RichText::new(format!(
+                                            "#{} · {}",
+                                            partida.id,
+                                            partida.played_at
+                                        ))
+                                        .size(tipografia::PEQUENO)
+                                        .color(cores::TEXTO_MUDO),
+                                    );
+                                    if let Some(banco) = db {
+                                        if let Ok(jogadas) = banco.get_match_moves(partida.id) {
+                                            ui.add_space(12.0);
+                                            ui.label(
+                                                egui::RichText::new(format!(
+                                                    "{} jogadas",
+                                                    jogadas.len()
+                                                ))
+                                                .size(tipografia::PEQUENO)
+                                                .color(cores::TEXTO_MUDO),
+                                            );
+                                            if let Some(ultima_jogada) = jogadas.last() {
+                                                ui.add_space(12.0);
+                                                ui.label(
+                                                    egui::RichText::new(ultima_jogada.resumo())
+                                                        .size(tipografia::PEQUENO)
+                                                        .color(cores::TEXTO_MUDO),
+                                                );
+                                            }
+                                        }
+                                    }
                                     // Duração formatada
                                     if let Some(dur) = partida.duration_s {
                                         ui.add_space(12.0);

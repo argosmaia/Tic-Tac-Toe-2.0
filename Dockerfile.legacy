@@ -17,11 +17,11 @@ COPY . .
 RUN cargo build --release
 
 # Organiza a arvore do pacote
-RUN mkdir -p velha2-linux-v0.1.1-legacy/assets \
-    && mkdir -p velha2-linux-v0.1.1-legacy/target/release \
-    && cp target/release/velha2 velha2-linux-v0.1.1-legacy/target/release/ \
-    && cp assets/velha2.png velha2-linux-v0.1.1-legacy/assets/ \
-    && cp install.sh velha2-linux-v0.1.1-legacy/ \
-    && cp velha2.desktop velha2-linux-v0.1.1-legacy/ \
-    && cp README.md velha2-linux-v0.1.1-legacy/ \
-    && tar -czvf velha2-linux-v0.1.1-legacy.tar.gz velha2-linux-v0.1.1-legacy
+RUN mkdir -p jogodavelha-linux-v0.1.1-legacy/assets \
+    && mkdir -p jogodavelha-linux-v0.1.1-legacy/target/release \
+    && cp target/release/jogodavelha jogodavelha-linux-v0.1.1-legacy/target/release/ \
+    && cp assets/jogodavelha.png jogodavelha-linux-v0.1.1-legacy/assets/ \
+    && cp install.sh jogodavelha-linux-v0.1.1-legacy/ \
+    && cp jogodavelha.desktop jogodavelha-linux-v0.1.1-legacy/ \
+    && cp README.md jogodavelha-linux-v0.1.1-legacy/ \
+    && tar -czvf jogodavelha-linux-v0.1.1-legacy.tar.gz jogodavelha-linux-v0.1.1-legacy
