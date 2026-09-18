@@ -9,4 +9,3 @@ pub mod protocol;
 pub mod session;
 
 pub use manager::{iniciar_network_manager, NetworkCommand, NetworkEvent, NetworkHandle};
-pub use protocol::GameMessage;

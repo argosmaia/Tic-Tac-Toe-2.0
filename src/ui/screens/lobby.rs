@@ -23,7 +23,7 @@ impl Default for LobbyConfig {
             modo: GameMode::Local,
             nome_x: String::from("Jogador X"),
             nome_o: String::from("Jogador O"),
-            nivel_cpu: AiLevel::Jogadora,
+            nivel_cpu: AiLevel::Player,
             session_id_entrada: String::new(),
         }
     }
@@ -147,12 +147,13 @@ pub fn render_lobby(
                         .size(tipografia::CORPO)
                         .color(cores::TEXTO_SECUNDARIO),
                 );
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     for nivel in [
                         AiLevel::Noob,
-                        AiLevel::Jogadora,
+                        AiLevel::Player,
                         AiLevel::Master,
                         AiLevel::Killer,
+                        AiLevel::TheExperience,
                     ] {
                         let selecionado = estado.config.nivel_cpu == nivel;
                         let cor_fundo = if selecionado {
@@ -160,10 +161,10 @@ pub fn render_lobby(
                         } else {
                             cores::SUPERFICIE_ELEVADA
                         };
-                        let cor_texto = if nivel == AiLevel::Killer {
-                            cores::ACENTO_DOURADO
-                        } else {
-                            cores::BOTAO_TEXTO
+                        let cor_texto = match nivel {
+                            AiLevel::Killer => cores::ACENTO_DOURADO,
+                            AiLevel::TheExperience => egui::Color32::from_rgb(180, 140, 255),
+                            _ => cores::BOTAO_TEXTO,
                         };
 
                         if ui
@@ -318,7 +319,11 @@ fn campo_nome_com_perfis(
                         egui::Button::new(
                             egui::RichText::new(&perfil.name)
                                 .size(tipografia::PEQUENO)
-                                .color(if selecionado { cor_label } else { cores::TEXTO_SECUNDARIO }),
+                                .color(if selecionado {
+                                    cor_label
+                                } else {
+                                    cores::TEXTO_SECUNDARIO
+                                }),
                         )
                         .fill(cor_fundo)
                         .stroke(egui::Stroke::new(

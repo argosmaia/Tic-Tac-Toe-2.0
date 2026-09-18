@@ -4,7 +4,7 @@
 //! Não muta estado — recebe &Board e um callback on_move.
 //! Toda lógica de estado fica em AppState.
 
-use egui::{Color32, Pos2, Rect, Sense, Ui, Vec2};
+use egui::{Pos2, Rect, Sense, Ui, Vec2};
 
 use crate::game::{Board, Cell, Player, QuadState};
 use crate::ui::theme::{cores, espacamentos, tipografia};

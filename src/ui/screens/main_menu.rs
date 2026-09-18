@@ -1,4 +1,4 @@
-//! Tela inicial do Ultimate Tic-Tac-Toe.
+//! Tela inicial do Velha 2.0.
 //!
 //! Apresenta as opções principais: Jogar, Perfil, Histórico e Sair.
 
@@ -34,20 +34,20 @@ pub fn render_main_menu(ui: &mut Ui) -> MenuAction {
 
             // Logo / Título
             ui.label(
-                egui::RichText::new("ULTIMATE")
-                    .size(tipografia::TITULO)
-                    .color(cores::TEXTO_MUDO),
-            );
-            ui.label(
-                egui::RichText::new("TIC-TAC-TOE")
+                egui::RichText::new("JOGO DA VELHA")
                     .size(tipografia::TITULO * 2.0)
                     .color(cores::BOTAO_PRIMARIO)
                     .strong(),
             );
+            ui.label(
+                egui::RichText::new("2.0")
+                    .size(tipografia::TITULO)
+                    .color(cores::TEXTO_MUDO),
+            );
 
             ui.add_space(8.0);
             ui.label(
-                egui::RichText::new("9 mini-tabuleiros, 1 vencedor")
+                egui::RichText::new("The Ultimate Tic-Tac-Toe")
                     .size(tipografia::SUBTITULO)
                     .color(cores::TEXTO_SECUNDARIO),
             );
@@ -83,7 +83,7 @@ pub fn render_main_menu(ui: &mut Ui) -> MenuAction {
 
             // Versão
             ui.label(
-                egui::RichText::new("v0.1.0 — HappyCode Productions")
+                egui::RichText::new("v0.2.1 — HappyCode Productions")
                     .size(tipografia::PEQUENO)
                     .color(cores::TEXTO_MUDO),
             );

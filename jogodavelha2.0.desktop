@@ -1,0 +1,26 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+<<<<<<<< HEAD:ultimate-tictactoe.desktop
+Name=Ultimate Tic-Tac-Toe
+GenericName=Ultimate Tic-Tac-Toe
+Comment=Ultimate Tic-Tac-Toe — multiplayer local, vs CPU e P2P
+Exec=/usr/local/bin/ultimate-tictactoe
+Icon=ultimate-tictactoe
+Terminal=false
+Categories=Game;BoardGame;
+Keywords=tictactoe;velha;jogo;game;strategy;
+StartupWMClass=ultimate-tictactoe
+========
+Name=Jogo da Velha 2.0
+GenericName=Ultimate Tic-Tac-Toe
+Comment=Ultimate Tic-Tac-Toe — multiplayer local, vs CPU e P2P
+X-App-Version=0.2.1
+Exec=/usr/local/bin/jogodavelha2.0
+Icon=jogodavelha2.0
+Terminal=false
+Categories=Game;BoardGame;
+Keywords=tictactoe;velha;jogo;game;strategy;
+StartupWMClass=tictactoe
+>>>>>>>> develop:jogodavelha2.0.desktop
+StartupNotify=true

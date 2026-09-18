@@ -6,36 +6,43 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::game::{rules, Board, Player};
+use crate::game::{rules, Board};
 
+use super::experience::{best_move_experience, best_move_experience_fallback};
 use super::minimax::best_move_at_depth;
 
 /// Nível de dificuldade da IA.
 ///
 /// - `Noob`: aleatoriedade pura com 20% de chance de jogar a melhor jogada "por acidente"
-/// - `Jogadora`: heurística simples sem lookahead (ganhar se puder, bloquear se necessário)
+/// - `Player`: heurística simples sem lookahead (ganhar se puder, bloquear se necessário)
 /// - `Master`: Minimax com Alpha-Beta, profundidade máxima 4, heurística local
 /// - `Killer`: Minimax com Alpha-Beta, profundidade máxima 6, heurística macro+micro combinada
+/// - `TheExperience`: Minimax profundidade 9 + viés estatístico do histórico do jogador
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AiLevel {
     Noob,
-    Jogadora,
+    Player,
     Master,
     Killer,
+    TheExperience,
 }
 
 impl AiLevel {
     pub fn label(self) -> &'static str {
         match self {
             AiLevel::Noob => "Noob",
-            AiLevel::Jogadora => "Jogadora",
+            AiLevel::Player => "Player",
             AiLevel::Master => "Master",
             AiLevel::Killer => "Killer 💀",
+            AiLevel::TheExperience => "The Experience 🧠",
         }
     }
 }
 
 /// Calcula a melhor jogada para o jogador atual conforme o nível de dificuldade.
+///
+/// Para o nível `TheExperience`, use `best_move_with_heatmap` para fornecer o mapa
+/// de calor do jogador. Esta função usa o fallback (minimax puro) nesse caso.
 ///
 /// # Retorna
 /// Par `(quadrante, célula)` da jogada escolhida.
@@ -49,10 +56,26 @@ pub fn best_move(board: &Board, level: AiLevel) -> Option<(usize, usize)> {
 
     match level {
         AiLevel::Noob => jogar_noob(board, &jogadas),
-        AiLevel::Jogadora => jogar_jogadora(board, &jogadas),
+        AiLevel::Player => jogar_player(board, &jogadas),
         AiLevel::Master => best_move_at_depth(board, 4),
         AiLevel::Killer => best_move_at_depth(board, 6),
+        AiLevel::TheExperience => best_move_experience_fallback(board),
     }
+}
+
+/// Calcula a melhor jogada para o nível "The Experience" usando o mapa de calor do jogador.
+///
+/// Deve ser chamada em vez de `best_move` quando o nível é `TheExperience`
+/// e há histórico de jogadas do humano disponível.
+///
+/// # Retorna
+/// Par `(quadrante, célula)` da jogada escolhida com viés estatístico.
+pub fn best_move_with_heatmap(board: &Board, heatmap: &[[f32; 9]; 9]) -> Option<(usize, usize)> {
+    let jogadas = rules::valid_moves(board);
+    if jogadas.is_empty() {
+        return None;
+    }
+    best_move_experience(board, heatmap)
 }
 
 /// Nível Noob: 80% aleatório, 20% melhor jogada por "sorte".
@@ -69,8 +92,8 @@ fn jogar_noob(board: &Board, jogadas: &[(usize, usize)]) -> Option<(usize, usize
     Some(jogadas[idx])
 }
 
-/// Nível Jogadora: ganhar se puder, bloquear se necessário, senão jogar melhor posição.
-fn jogar_jogadora(board: &Board, jogadas: &[(usize, usize)]) -> Option<(usize, usize)> {
+/// Nível Player: ganhar se puder, bloquear se necessário, senão jogar melhor posição.
+fn jogar_player(board: &Board, jogadas: &[(usize, usize)]) -> Option<(usize, usize)> {
     let jogador_atual = board.current_player;
     let oponente = jogador_atual.opponent();
 
@@ -104,5 +127,3 @@ fn jogar_jogadora(board: &Board, jogadas: &[(usize, usize)]) -> Option<(usize, u
     // Prioridade 3: minimax com profundidade 1 (pega o melhor imediato)
     best_move_at_depth(board, 1)
 }
-
-

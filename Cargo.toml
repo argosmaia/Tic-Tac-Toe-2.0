@@ -1,12 +1,12 @@
 [package]
-name = "ultimate-tictactoe"
-version = "0.2.0"
+name = "jogodavelha2"
+version = "0.2.1"
 edition = "2021"
 authors = ["HappyCode Productions"]
-description = "Ultimate Tic-Tac-Toe"
+description = "Ultimate Tic-Tac-Toe — Jogo da Velha 2.0"
 
 [[bin]]
-name = "ultimate-tictactoe"
+name = "jogodavelha2"
 path = "src/main.rs"
 
 [dependencies]

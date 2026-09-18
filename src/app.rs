@@ -11,15 +11,17 @@ use directories::ProjectDirs;
 use eframe::CreationContext;
 use egui::Context;
 
-use crate::ai::{best_move, AiLevel};
+use crate::ai::{best_move, best_move_with_heatmap, AiLevel};
 use crate::game::{rules, Board, GameMode, GameResult, Player};
 use crate::network::{
     iniciar_network_manager, NetworkCommand, NetworkEvent, NetworkHandle,
 };
+use crate::network::peer::PeerStatus;
+use crate::network::session::GameSession;
 use crate::storage::Database;
 use crate::ui::screens::{
     game_screen::{GameScreenAction, Placar},
-    history::HistoricoAction,
+    history::{HistoricoAction, HistoricoState},
     lobby::{LobbyAction, LobbyConfig, LobbyState},
     main_menu::MenuAction,
     profile::{PerfilAction, PerfilState},
@@ -45,9 +47,14 @@ struct SessaoJogo {
     config: LobbyConfig,
     placar: Placar,
     inicio: Instant,
-    cpu_turno: bool,      // true quando a CPU deve jogar neste frame
-    aguardando_cpu: bool, // true quando a CPU está calculando a jogada em background
+    cpu_turno: bool,       // true quando a CPU deve jogar neste frame
+    aguardando_cpu: bool,  // true quando a CPU está calculando a jogada em background
     aguardando_peer: bool, // true quando é turno do peer P2P (bloqueia input local)
+    /// Buffer de jogadas da partida atual (jogador, quad, cell).
+    /// Drenado e persistido em `match_moves` ao fim da partida.
+    jogadas_buffer: Vec<(String, usize, usize)>,
+    /// Contador de turnos (incrementado a cada jogada válida).
+    turno_contador: u32,
 }
 
 /// Estado global da aplicação.
@@ -57,10 +64,14 @@ pub struct AppState {
     sessao: Option<SessaoJogo>,
     db: Option<Database>,
     historico_cache: Vec<crate::storage::MatchRecord>,
+    /// Estado da tela de histórico (filtro ativo).
+    historico_state: HistoricoState,
     /// Estado da tela de perfis.
     perfil_state: PerfilState,
     /// Handle de rede P2P, presente apenas durante uma sessão P2P.
     network: Option<NetworkHandle>,
+    /// Estado da sessão P2P atual, quando houver uma conexão em andamento.
+    sessao_p2p: Option<GameSession>,
     /// Ticket P2P gerado pelo host, exibido no lobby para compartilhamento.
     pub ticket_p2p: Option<String>,
     /// Mensagem de status de rede ("Conectando...", "Erro: ...", etc.).
@@ -93,7 +104,19 @@ impl AppState {
         theme::aplicar_tema(&cc.egui_ctx);
 
         // Tenta abrir o banco de dados local
-        let db = Self::abrir_banco();
+        let db = match Self::abrir_banco() {
+            Ok(db) => Some(db),
+            Err(error) => {
+                eprintln!("Falha ao abrir banco local: {error}");
+                None
+            }
+        };
+        if let Some(database) = &db {
+            let versao = database.get_setting("app_version").ok().flatten();
+            if versao.as_deref() != Some(env!("CARGO_PKG_VERSION")) {
+                let _ = database.set_setting("app_version", env!("CARGO_PKG_VERSION"));
+            }
+        }
         let historico_cache = db
             .as_ref()
             .and_then(|d| d.list_matches(50).ok())
@@ -121,8 +144,10 @@ impl AppState {
             sessao: None,
             db,
             historico_cache,
+            historico_state: HistoricoState::default(),
             perfil_state,
             network: None,
+            sessao_p2p: None,
             ticket_p2p: None,
             status_rede: None,
             tx_cpu_move,
@@ -130,8 +155,8 @@ impl AppState {
         }
     }
 
-    /// Tenta abrir (ou criar) o banco local em `ultimate-tictactoe`.
-    fn abrir_banco() -> Option<Database> {
+    /// Tenta abrir (ou criar) o banco local em `~/.velha2/data.db`.
+    fn abrir_banco() -> Result<Database, crate::error::AppError> {
         let mut caminho = dirs_next_or_home();
         caminho.push("data.db");
 
@@ -140,7 +165,7 @@ impl AppState {
             let _ = std::fs::create_dir_all(pai);
         }
 
-        Database::open(&caminho).ok()
+        Ok(Database::open(&caminho)?)
     }
 
     /// Inicia uma nova sessão de jogo com a configuração do lobby.
@@ -153,12 +178,15 @@ impl AppState {
             cpu_turno: false,
             aguardando_cpu: false,
             aguardando_peer: false,
+            jogadas_buffer: Vec::new(),
+            turno_contador: 0,
         });
         self.tela_atual = Tela::Jogo;
     }
 
     /// Inicia uma sessão P2P como host.
     fn hospedar_p2p(&mut self, nosso_nome: String) {
+        self.sessao_p2p = Some(GameSession::new_as_host(nosso_nome.clone()));
         let handle = iniciar_network_manager();
         let _ = handle
             .tx_cmd
@@ -170,6 +198,7 @@ impl AppState {
 
     /// Conecta a uma sessão P2P existente usando o ticket do host.
     fn conectar_p2p(&mut self, ticket: String, nosso_nome: String) {
+        self.sessao_p2p = Some(GameSession::new_as_guest(ticket.clone(), nosso_nome.clone()));
         let handle = iniciar_network_manager();
         let _ = handle.tx_cmd.try_send(NetworkCommand::Conectar {
             ticket_str: ticket,
@@ -191,11 +220,33 @@ impl AppState {
         for evento in eventos {
             match evento {
                 NetworkEvent::HostPronto { ticket } => {
+                    if let Some(sessao) = &mut self.sessao_p2p {
+                        sessao.session_id = ticket.clone();
+                        let identificador = sessao.display_id().chars().take(12).collect::<String>();
+                        self.status_rede = Some(format!(
+                            "Ticket pronto! Sessão {}...",
+                            identificador
+                        ));
+                    } else {
+                        self.status_rede = Some("Ticket pronto! Compartilhe com seu amigo.".to_owned());
+                    }
                     self.ticket_p2p = Some(ticket);
-                    self.status_rede = Some("Ticket pronto! Compartilhe com seu amigo.".to_owned());
                 }
                 NetworkEvent::PeerConectado { nome_peer } => {
-                    self.status_rede = None;
+                    if let Some(sessao) = &mut self.sessao_p2p {
+                        sessao.host_name = nome_peer.clone();
+                        sessao.peer_status = PeerStatus::Connected {
+                            peer_name: nome_peer.clone(),
+                        };
+                        let papel = if sessao.is_host { "host" } else { "convidado" };
+                        if sessao.peer_status.is_connected() {
+                            self.status_rede = Some(format!(
+                                "Conectado como {} com {}",
+                                papel,
+                                sessao.host_name
+                            ));
+                        }
+                    }
                     let config = self.lobby_state.config.clone();
                     let is_host = self.ticket_p2p.is_some();
                     let config_com_peer = if is_host {
@@ -224,12 +275,18 @@ impl AppState {
                     }
                 }
                 NetworkEvent::PeerDesconectado => {
+                    if let Some(sessao) = &mut self.sessao_p2p {
+                        sessao.peer_status = PeerStatus::Lost;
+                    }
                     self.status_rede = Some("⚠️ Amigo desconectou.".to_owned());
                     if let Some(sessao) = &mut self.sessao {
                         sessao.aguardando_peer = false;
                     }
                 }
                 NetworkEvent::Erro { mensagem } => {
+                    if let Some(sessao) = &mut self.sessao_p2p {
+                        sessao.peer_status = PeerStatus::Lost;
+                    }
                     self.status_rede = Some(format!("❌ {}", mensagem));
                 }
             }
@@ -243,12 +300,40 @@ impl AppState {
         };
 
         // Valida a jogada antes de aplicar
-        let válida = rules::valid_moves(&sessao.board)
-            .contains(&(quad, cell));
-
+        let válida = rules::valid_moves(&sessao.board).contains(&(quad, cell));
         if !válida {
             return; // Jogada inválida — ignora silenciosamente
         }
+
+        // Identifica o jogador atual antes de fazer a jogada
+        let jogador_atual = sessao.board.current_player;
+        let player_str = if jogador_atual == Player::X { "x" } else { "o" };
+
+        // Atualiza o mapa de calor do humano quando vs TheExperience
+        // (apenas jogadas humanas, i.e., turno de X em modo VsCpu)
+        if sessao.config.modo == crate::game::GameMode::VsCpu
+            && sessao.config.nivel_cpu == AiLevel::TheExperience
+            && jogador_atual == Player::X
+        {
+            let nome_x = sessao.config.nome_x.clone();
+            if let Some(db) = &self.db {
+                let _ = db.record_player_move(&nome_x, quad, cell);
+            }
+        }
+
+        // Incrementa turno e registra no buffer (humano e CPU)
+        sessao.turno_contador += 1;
+        let turno = sessao.turno_contador;
+        let nome_jogador = if jogador_atual == Player::X {
+            sessao.config.nome_x.clone()
+        } else {
+            match sessao.config.modo {
+                GameMode::VsCpu => format!("CPU:{}", sessao.config.nivel_cpu),
+                _ => sessao.config.nome_o.clone(),
+            }
+        };
+        sessao.jogadas_buffer.push((nome_jogador, quad, cell));
+        let _ = (player_str, turno); // usados abaixo via buffer
 
         let resultado = sessao.board.make_move(quad, cell);
 
@@ -262,7 +347,7 @@ impl AppState {
 
         // Persiste o resultado se a partida terminou
         if let Some(resultado) = resultado {
-            self.registrar_resultado(resultado);
+            self.registrar_resultado(resultado, None);
         }
     }
 
@@ -271,13 +356,11 @@ impl AppState {
         while let Ok(jogada) = self.rx_cpu_move.try_recv() {
             if let Some(sessao) = &mut self.sessao {
                 sessao.aguardando_cpu = false;
-                if let Some((quad, cell)) = jogada {
-                    let resultado = sessao.board.make_move(quad, cell);
-
-                    if let Some(resultado) = resultado {
-                        self.registrar_resultado(resultado);
-                    }
-                }
+            }
+            if let Some((quad, cell)) = jogada {
+                // Registra a jogada da CPU pelo processador padrão
+                // (inclui buffer + heatmap + resultado)
+                self.processar_jogada(quad, cell);
             }
         }
     }
@@ -297,35 +380,60 @@ impl AppState {
 
         let board = sessao.board.clone();
         let nivel = sessao.config.nivel_cpu;
+        let nome_x = sessao.config.nome_x.clone();
         let tx = self.tx_cpu_move.clone();
         let ctx_clone = ctx.clone();
 
-        tokio::spawn(async move {
-            let jogada = best_move(&board, nivel);
-            let _ = tx.send(jogada).await;
-            ctx_clone.request_repaint();
-        });
+        // Para o nível "The Experience", carrega o heatmap do banco e usa a função específica.
+        if nivel == AiLevel::TheExperience {
+            let heatmap = self
+                .db
+                .as_ref()
+                .and_then(|db| db.get_move_heatmap(&nome_x).ok())
+                .unwrap_or([[0.0f32; 9]; 9]);
+
+            tokio::spawn(async move {
+                let jogada = best_move_with_heatmap(&board, &heatmap);
+                let _ = tx.send(jogada).await;
+                ctx_clone.request_repaint();
+            });
+        } else {
+            tokio::spawn(async move {
+                let jogada = best_move(&board, nivel);
+                let _ = tx.send(jogada).await;
+                ctx_clone.request_repaint();
+            });
+        }
     }
 
-    /// Registra o resultado de uma partida no banco e atualiza o placar.
-    fn registrar_resultado(&mut self, resultado: GameResult) {
+    /// Registra o resultado de uma partida no banco, persiste as jogadas do buffer e atualiza o placar.
+    ///
+    /// # Parâmetros
+    /// - `abandoned_by`: `Some("x")` ou `Some("o")` em caso de desistência; `None` para fim normal.
+    fn registrar_resultado(&mut self, resultado: GameResult, abandoned_by: Option<&str>) {
         let Some(sessao) = &mut self.sessao else {
             return;
         };
 
-        // Atualiza placar da sessão
-        match resultado {
-            GameResult::Winner(Player::X) => sessao.placar.pontos_x += 1,
-            GameResult::Winner(Player::O) => sessao.placar.pontos_o += 1,
-            GameResult::Draw => {}
+        // Atualiza placar da sessão (exceto desistências — placar não muda)
+        if abandoned_by.is_none() {
+            match resultado {
+                GameResult::Winner(Player::X) => sessao.placar.pontos_x += 1,
+                GameResult::Winner(Player::O) => sessao.placar.pontos_o += 1,
+                GameResult::Draw => {}
+            }
         }
 
-        // Persiste no banco
+        // Monta strings de resultado e modo
         let duração = sessao.inicio.elapsed().as_secs() as i64;
-        let result_str = match resultado {
-            GameResult::Winner(Player::X) => "x_wins",
-            GameResult::Winner(Player::O) => "o_wins",
-            GameResult::Draw => "draw",
+        let result_str = if abandoned_by.is_some() {
+            "abandoned"
+        } else {
+            match resultado {
+                GameResult::Winner(Player::X) => "x_wins",
+                GameResult::Winner(Player::O) => "o_wins",
+                GameResult::Draw => "draw",
+            }
         };
         let modo_str = sessao.config.modo.label().to_lowercase();
         let nome_x = sessao.config.nome_x.clone();
@@ -334,9 +442,26 @@ impl AppState {
             _ => sessao.config.nome_o.clone(),
         };
 
+        // Drena o buffer de jogadas para persistência
+        let buffer_snapshot = std::mem::take(&mut sessao.jogadas_buffer);
+
         if let Some(db) = &self.db {
-            let _ = db.save_match(&nome_x, &nome_o, &modo_str, result_str, Some(duração));
-            // Recarrega o cache
+            // Salva a partida e obtém o ID para vincular as jogadas
+            if let Ok(match_id) = db.save_match(
+                &nome_x,
+                &nome_o,
+                &modo_str,
+                result_str,
+                Some(duração),
+                abandoned_by,
+            ) {
+                // Persiste cada jogada do buffer
+                for (turno, (_nome, quad, cell)) in buffer_snapshot.iter().enumerate() {
+                    let player_str = if turno % 2 == 0 { "x" } else { "o" };
+                    let _ = db.save_match_move(match_id, (turno + 1) as u32, player_str, *quad, *cell);
+                }
+            }
+            // Recarrega o cache do histórico
             self.historico_cache = db.list_matches(50).unwrap_or_default();
         }
     }
@@ -468,6 +593,27 @@ impl eframe::App for AppState {
                                     ctx.request_repaint();
                                 }
                                 GameScreenAction::Desistir => {
+                                    // Registra desistência: quem clicou em desistir é sempre X (humano)
+                                    // em modo VsCpu. Em modo local, quem desistiu é o jogador atual.
+                                    if let Some(sess) = &self.sessao {
+                                        if !sess.board.is_over() {
+                                            let abandoned_by = if sess.config.modo == GameMode::VsCpu {
+                                                Some("x") // humano sempre joga como X
+                                            } else {
+                                                // Em local/P2P, quem desistiu é o jogador atual
+                                                if sess.board.current_player == Player::X {
+                                                    Some("x")
+                                                } else {
+                                                    Some("o")
+                                                }
+                                            };
+                                            // Usa resultado fictício para desistência
+                                            let resultado_ficticio = GameResult::Winner(
+                                                if abandoned_by == Some("x") { Player::O } else { Player::X },
+                                            );
+                                            self.registrar_resultado(resultado_ficticio, abandoned_by);
+                                        }
+                                    }
                                     // Notifica o peer que desistimos
                                     if let Some(h) = &self.network {
                                         let _ = h.tx_cmd.try_send(NetworkCommand::Desconectar);
@@ -498,6 +644,8 @@ impl eframe::App for AppState {
                         let ação = crate::ui::screens::history::render_historico(
                             ui,
                             &self.historico_cache,
+                            &mut self.historico_state,
+                            self.db.as_ref(),
                         );
                         match ação {
                             HistoricoAction::Voltar => self.tela_atual = Tela::MenuPrincipal,
@@ -534,11 +682,11 @@ impl eframe::App for AppState {
 }
 
 /// Retorna o diretório de dados da aplicação, multiplataforma:
-/// - Linux:   ~/.local/share/ultimate-tictactoe/
-/// - macOS:   ~/Library/Application Support/ultimate-tictactoe/
-/// - Windows: C:\Users\<user>\AppData\Roaming\ultimate-tictactoe\
+/// - Linux:   ~/.local/share/velha2/
+/// - macOS:   ~/Library/Application Support/velha2/
+/// - Windows: C:\Users\<user>\AppData\Roaming\velha2\
 fn dirs_next_or_home() -> PathBuf {
-    ProjectDirs::from("br", "HappyCode", "ultimate-tictactoe")
+    ProjectDirs::from("br", "HappyCode", "velha2")
         .map(|dirs| dirs.data_dir().to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."))
 }
