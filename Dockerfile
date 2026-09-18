@@ -1,60 +1,45 @@
-# Stage 1: Build (Ambiente de compilação)
-FROM rust:1.80-slim AS builder
+# Stage 1: Build Linux Nativo
+FROM rust:1.80-slim AS builder-linux
 
-# Instala as dependências necessárias para compilar aplicações com egui/eframe no Linux
 RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libx11-dev \
-    libasound2-dev \
-    libudev-dev \
-    libxcb-render0-dev \
-    libxcb-shape0-dev \
-    libxcb-xfixes0-dev \
+    pkg-config libx11-dev libasound2-dev libudev-dev \
+    libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
-# Otimização: Cache das dependências do Cargo
-# Copiamos apenas os arquivos do Cargo primeiro para baixar e compilar dependências
-COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-
-# Limita as threads de build para usar o mínimo de memória RAM possível do host
-ENV CARGO_BUILD_JOBS=1
-
-RUN cargo build --release
-RUN rm -rf src
-
-# Copia o resto do código
 COPY . .
-# Dá um "touch" para forçar a recompilação apenas do nosso código
-RUN touch src/main.rs
 RUN cargo build --release
 
-# Stage 2: Runtime (Ambiente leve só para rodar)
-FROM debian:bookworm-slim
+# Stage 2: Build Windows (Cross-compilation)
+FROM rust:1.80-slim AS builder-windows
 
-# Instala apenas as bibliotecas de sistema necessárias em runtime (X11, Audio, OpenGL)
 RUN apt-get update && apt-get install -y \
-    libx11-6 \
-    libasound2 \
-    libudev1 \
-    libxcb-render0 \
-    libxcb-shape0 \
-    libxcb-xfixes0 \
-    libgl1-mesa-glx \
-    libgl1-mesa-dri \
+    mingw-w64 \
     && rm -rf /var/lib/apt/lists/*
 
-# Cria um usuário não-root para rodar a aplicação gráfica de forma segura
-RUN useradd -m appuser
-USER appuser
+RUN rustup target add x86_64-pc-windows-gnu
 
-WORKDIR /home/appuser/app
+WORKDIR /app
+COPY . .
 
-# Copia apenas o binário compilado do stage "builder" para não inchar a imagem final
-COPY --from=builder /app/target/release/jogodavelha2 .
-# Copia a pasta de assets (fontes, ícones)
-COPY --from=builder /app/assets ./assets
+# Compila para Windows 64-bits (Suporta Win 7, 8, 10, 11)
+RUN cargo build --target x86_64-pc-windows-gnu --release
 
-CMD ["./jogodavelha2"]
+# Stage 3: Web Server para distribuir os executáveis
+FROM nginx:alpine
+
+# Limpa html padrão
+RUN rm -rf /usr/share/nginx/html/*
+
+# Cria pasta de downloads
+RUN mkdir -p /usr/share/nginx/html/downloads
+
+# Copia os binários construídos
+COPY --from=builder-linux /app/target/release/jogodavelha2 /usr/share/nginx/html/downloads/jogodavelha2-linux
+COPY --from=builder-windows /app/target/x86_64-pc-windows-gnu/release/jogodavelha2.exe /usr/share/nginx/html/downloads/jogodavelha2-windows.exe
+
+# Cria uma página HTML simples para download
+RUN echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Download Jogo da Velha 2.0</title><style>body{font-family:sans-serif;text-align:center;margin-top:50px;background:#1e1e1e;color:#fff;} a{display:inline-block;margin:10px;padding:15px 25px;background:#4CAF50;color:#fff;text-decoration:none;border-radius:5px;font-weight:bold;} a:hover{background:#45a049;}</style></head><body><h1>Baixe o Jogo da Velha 2.0</h1><p>Os executáveis abaixo rodam nativamente, sem precisar do Docker no cliente.</p><div><a href="/downloads/jogodavelha2-windows.exe">📥 Download para Windows (7, 8, 10, 11)</a><a href="/downloads/jogodavelha2-linux">📥 Download para Linux</a></div><p style="margin-top:40px;color:#aaa;font-size:0.9em;">Nota sobre macOS: A compilação cruzada para Mac via Docker requer o SDK proprietário da Apple. Recomendamos usar o GitHub Actions para gerar o binário de Mac.</p><p style="color:#aaa;font-size:0.9em;">Nota sobre Versão Web (Wasm): O jogo usa "rusqlite" (SQLite C bindings) e "iroh" (Rede P2P), o que bloqueia a compilação direta para o navegador no momento sem refatorações no código-fonte.</p></body></html>' > /usr/share/nginx/html/index.html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
