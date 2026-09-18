@@ -4,7 +4,7 @@
 
 ![Jogo da Velha 2.0](assets/tictactoe.png)
 
-**Um jogo da Velha do Mal — 9 mini-tabuleiros dentro de 1 tabuleiro grande.**
+**Um jogo da Velha — 9 mini-tabuleiros dentro de 1 tabuleiro grande.**
 
 [![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange?logo=rust)](https://www.rust-lang.org/)
 [![egui](https://img.shields.io/badge/UI-egui%200.27-blue)](https://github.com/emilk/egui)
@@ -16,16 +16,16 @@
 ---
 
 > **⚠️ Aviso importante:**
-> Este projeto é **vibecoding** — foi construído por divertimento, entre amigos, sem compromisso com perfeição.
+> Este projeto é feito com **vibecoding** — foi construído por diversão, entre amigos, sem compromisso com perfeição.
 > Pode ter bug. Pode ter código feio. Pode ter comentário engraçado no lugar errado.
 > Se você esperava código de produção enterprise: errou o repositório. 😄
-> Se você quer se divertir jogando Velha com seus amigos: **seja bem-vindo!**
+> Se você quer se divertir jogando jogo da velha com seus amigos: **seja bem-vindo!**
 
 ---
 
 ## 📖 O que é isso?
 
-**Velha 2.0** é uma versão turbinada da velha clássica: o **Ultimate Tic-Tac-Toe**.
+**Jogo da Velha 2.0** é uma versão turbinada da velha clássica: o **Ultimate Tic-Tac-Toe**.
 
 A regra é simples e diabólica ao mesmo tempo:
 
@@ -96,7 +96,7 @@ Tic-Tac-Toe-2.0/
 │
 ├── assets/
 │   ├── fonts/               # Fonte Garet embutida no binário
-│   └── velha2.png           # Ícone do app
+│   └── file.png           # Ícone do app
 │
 ├── Cargo.toml
 ├── install.sh               # Script de instalação Linux
@@ -146,8 +146,8 @@ sudo pacman -S libxcb libxkbcommon openssl fontconfig
 
 ```bash
 # Clone o repositório
-git clone https://github.com/seu-usuario/velha2.git
-cd velha2
+git clone https://github.com/seu-usuario/Tic-Tac-Toe-2.0.git
+cd Tic-Tac-Toe-2.0
 
 # Rodar em modo desenvolvimento
 cargo run
