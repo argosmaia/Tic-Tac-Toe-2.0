@@ -1,6 +1,6 @@
-# Análise do Codebase e Roadmap: Velha 2.0 (Ultimate Tic-Tac-Toe)
+# Análise do Codebase e Roadmap: Jogo da Velha 2.0 (Ultimate Tic-Tac-Toe)
 
-Este documento apresenta uma análise profunda do codebase atual do projeto **Velha 2.0**, identificando o que está correto (funcionando como esperado), o que está incorreto (bugs lógicos, de rede e performance), o que falta implementar (funcionalidades pendentes) e as mudanças arquiteturais necessárias.
+Este documento apresenta uma análise profunda do codebase atual do projeto **Jogo da Velha 2.0**, identificando o que está correto (funcionando como esperado), o que está incorreto (bugs lógicos, de rede e performance), o que falta implementar (funcionalidades pendentes) e as mudanças arquiteturais necessárias.
 
 ---
 

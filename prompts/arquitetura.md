@@ -1,12 +1,12 @@
-# 📐 Arquitetura do Sistema — Velha 2.0
+# 📐 Arquitetura do Sistema — Jogo da Velha 2.0
 
-Este documento descreve a especificação arquitetural do **Velha 2.0 (Ultimate Tic-Tac-Toe)**. Ele detalha as responsabilidades de cada camada, os fluxos de dados do P2P e da IA, a integração do banco de dados e sugere melhorias estruturais de médio a longo prazo para o projeto.
+Este documento descreve a especificação arquitetural do **Jogo da Velha 2.0 (Ultimate Tic-Tac-Toe)**. Ele detalha as responsabilidades de cada camada, os fluxos de dados do P2P e da IA, a integração do banco de dados e sugere melhorias estruturais de médio a longo prazo para o projeto.
 
 ---
 
 ## 🏗️ Visão Geral das Camadas
 
-A arquitetura do Velha 2.0 adota uma estrutura em camadas limpas (*Clean Architecture / Onion Architecture* modificada), visando isolar o domínio das regras do jogo da infraestrutura externa (rede, banco de dados e interface gráfica).
+A arquitetura do Jogo da Velha 2.0 adota uma estrutura em camadas limpas (*Clean Architecture / Onion Architecture* modificada), visando isolar o domínio das regras do jogo da infraestrutura externa (rede, banco de dados e interface gráfica).
 
 ```mermaid
 graph TD

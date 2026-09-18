@@ -42,11 +42,12 @@ A regra é simples e diabólica ao mesmo tempo:
 ## ✨ Funcionalidades
 
 - 🎮 **Multiplayer local** — dois jogadores no mesmo teclado/mouse
-- 🤖 **vs CPU** em 4 níveis de dificuldade:
+- 🤖 **vs CPU** em 5 níveis de dificuldade:
   - `Noob` — joga quase aleatório (20% de chance de fazer uma jogada boa por acidente)
   - `Player` — bloqueia e ataca quando pode
   - `Master` — Minimax com Alpha-Beta, profundidade 4
   - `Killer 💀` — Minimax com Alpha-Beta, profundidade 6 + heurística macro+micro
+  - `The Experience 🧠` — Minimax com Alpha-Beta (profundidade 9) + Viés estatístico baseado no mapa de calor do histórico do jogador
 - 💾 **Histórico de partidas** salvo em SQLite local
 - 🎨 **Interface dark** com tema neon, fonte Garet, animações de borda ativa
 - 🖥️ **Multiplataforma** — Linux, macOS, Windows

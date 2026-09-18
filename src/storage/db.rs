@@ -98,6 +98,7 @@ impl Database {
 
     /// Abre banco de dados em memória (para testes).
     #[cfg(test)]
+    #[allow(dead_code)]
     pub fn in_memory() -> SqlResult<Self> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(MIGRATION_V1)?;

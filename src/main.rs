@@ -1,4 +1,4 @@
-//! Ponto de entrada do Velha 2.0.
+//! Ponto de entrada do Jogo da Velha 2.0.
 //!
 //! Inicializa o runtime tokio (necessário para iroh) e lança o app eframe.
 

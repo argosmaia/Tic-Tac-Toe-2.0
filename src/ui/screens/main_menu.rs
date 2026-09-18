@@ -1,4 +1,4 @@
-//! Tela inicial do Velha 2.0.
+//! Tela inicial do Jogo da Velha 2.0.
 //!
 //! Apresenta as opções principais: Jogar, Perfil, Histórico e Sair.
 
