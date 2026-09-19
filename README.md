@@ -25,17 +25,15 @@
 
 ## 📖 O que é isso?
 
-**Jogo da Velha 2.0** é uma versão turbinada da velha clássica: o **Ultimate Tic-Tac-Toe**.
+**Jogo da Velha 2.0** é uma versão turbinada do clássico jogo da velha: **Tic-Tac-Toe**.
 
-A regra é simples e diabólica ao mesmo tempo:
+A regra é simples e maluca ao mesmo tempo:
 
 - O tabuleiro tem **9 mini-tabuleiros** organizados em uma grade 3×3
 - Você joga numa célula de um mini-tabuleiro → isso **determina em qual mini-tabuleiro** o próximo jogador deve jogar
 - Para vencer um mini-tabuleiro: faça uma linha de 3 (igual à velha normal)
 - Para vencer o jogo: vença **3 mini-tabuleiros em linha** no tabuleiro grande
 - Se o mini-tabuleiro indicado já foi ganho: o jogador pode jogar **em qualquer um aberto**
-
-É a velha. Mas com traição embutida.
 
 ---
 
